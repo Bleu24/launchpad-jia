@@ -216,7 +216,7 @@ export function signInWithMicrosoft() {
           email: profile.email,
           image: `https://api.dicebear.com/8.x/shapes/svg?seed=${
             profile.email.split("@")[0]
-          }`,
+            }`,
         })
         .then((res) => {
           if (res.data.error) {
