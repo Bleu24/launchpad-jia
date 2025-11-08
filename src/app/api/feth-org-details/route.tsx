@@ -28,26 +28,27 @@ export async function POST(req: Request) {
       },
       {
         $lookup: {
-            from: "organization-plans",
-            let: { planId: "$planId" },
-            pipeline: [
-                {
-                    $addFields: {
-                        _id: { $toString: "$_id" }
-                    }
-                },
-                {
-                    $match: {
-                        $expr: { $eq: ["$_id", "$$planId"] }
-                    }
-                }
-            ],
-            as: "plan"
+          from: "organization-plans",
+          let: { planId: "$planId" },
+          pipeline: [
+            {
+              $addFields: {
+                _id: { $toString: "$_id" }
+              }
+            },
+            {
+              $match: {
+                $expr: { $eq: ["$_id", "$$planId"] }
+              }
+            }
+          ],
+          as: "plan"
         }
-    },
-    {
-      $unwind: "$plan"
-    },
+      },
+      {
+        // Preserve orgs without a plan; client can fallback to default job limit
+        $unwind: { path: "$plan", preserveNullAndEmptyArrays: true }
+      },
     ]).toArray();
 
     if (!orgDoc || orgDoc.length === 0) {
@@ -57,6 +58,7 @@ export async function POST(req: Request) {
       );
     }
 
+    // Return the organization document even if plan is missing
     return Response.json(orgDoc[0]);
   } catch (error) {
     console.error("Error in feth-org-details endpoint:", error);
