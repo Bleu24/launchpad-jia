@@ -212,7 +212,7 @@ export default function OrganizationsTable() {
                                                         if (e.defaultPrevented) return;
                                                         e.preventDefault();
                                                         setMenuOpen(false);
-                                                        window.location.href = `https://hirejia.ai/recruiter-dashboard?orgID=${organization._id}`;
+                                                        window.location.href = `http://localhost:3000/recruiter-dashboard?orgID=${organization._id}`;
                                                     }}>
                                                         <span>Go to Recruiter's Portal</span>
                                                     </div>
