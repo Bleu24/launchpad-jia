@@ -64,7 +64,8 @@ export async function POST(request: Request) {
         }
       },
       {
-        $unwind: "$plan"
+        // Allow organizations without a planId to still pass through
+        $unwind: { path: "$plan", preserveNullAndEmptyArrays: true }
       },
     ]).toArray();
 
@@ -74,7 +75,12 @@ export async function POST(request: Request) {
 
     const totalActiveCareers = await db.collection("careers").countDocuments({ orgID, status: "active" });
 
-    if (totalActiveCareers >= (orgDetails[0].plan.jobLimit + (orgDetails[0].extraJobSlots || 0))) {
+    // Fallback: if no plan found, default to a free tier job limit (e.g., 3)
+    const baseJobLimit = (orgDetails[0].plan?.jobLimit ?? 3);
+    const extraSlots = (orgDetails[0].extraJobSlots || 0);
+    const availableJobs = baseJobLimit + extraSlots;
+
+    if (totalActiveCareers >= availableJobs) {
       return NextResponse.json({ error: "You have reached the maximum number of jobs for your plan" }, { status: 400 });
     }
 
