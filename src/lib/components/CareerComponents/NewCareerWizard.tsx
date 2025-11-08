@@ -72,18 +72,21 @@ export default function NewCareerWizard() {
     const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
     const [newMemberEmail, setNewMemberEmail] = useState("");
     const [newMemberRole, setNewMemberRole] = useState<TeamMember["role"]>("Collaborator");
+    const [memberPickerOpen, setMemberPickerOpen] = useState(false);
+    const [allOrgMembers, setAllOrgMembers] = useState<any[]>([]);
+    const [memberSearch, setMemberSearch] = useState("");
 
     // Internal flags
     const [submitting, setSubmitting] = useState(false);
     const submittedRef = useRef(false);
 
     useEffect(() => {
-        // Initialize locations with first province and its cities
+        // Initialize locations with provinces and full city list (no preselection)
         const provinces = philippineLocations.provinces as any[];
         setProvinceList(provinces);
-        // Do not preselect province/city so placeholders show and user chooses explicitly
+        // Default: show placeholder for province and city, but allow city dropdown to list all cities when opened
         setProvince("");
-        setCityList([]);
+        setCityList(philippineLocations.cities as any[]);
         setCity("");
     }, []);
 
@@ -93,6 +96,21 @@ export default function NewCareerWizard() {
             setTeamMembers([{ email: user.email, role: "Job Owner" }]);
         }
     }, [user, teamMembers.length]);
+
+    useEffect(() => {
+        // Prefetch all org members for picker (simple fetch, can paginate later)
+        const loadMembers = async () => {
+            if (!orgID) return;
+            try {
+                const res = await fetch('/api/fetch-members', { method: 'POST', body: JSON.stringify({ orgID }), headers: { 'Content-Type': 'application/json' } });
+                if (res.ok) {
+                    const data = await res.json();
+                    setAllOrgMembers(data || []);
+                }
+            } catch (e) { /* silent */ }
+        };
+        loadMembers();
+    }, [orgID]);
 
     const canProceedStep1 = useMemo(() => {
         return (
@@ -104,18 +122,30 @@ export default function NewCareerWizard() {
         );
     }, [jobTitle, description, workSetup, province, city]);
 
-    const addMember = () => {
-        if (!newMemberEmail) return;
-        if (teamMembers.some((m) => m.email === newMemberEmail)) {
+    const addMember = (email: string, role: TeamMember['role'] = 'Collaborator') => {
+        if (!email) return;
+        if (teamMembers.some((m) => m.email === email)) {
             errorToast("Member already added", 1200);
             return;
         }
-        setTeamMembers((prev) => [...prev, { email: newMemberEmail, role: newMemberRole }]);
-        setNewMemberEmail("");
+        setTeamMembers((prev) => [...prev, { email, role }]);
     };
 
     const removeMember = (email: string) => {
         setTeamMembers((prev) => prev.filter((m) => m.email !== email));
+    };
+
+    const updateMemberRole = (email: string, role: TeamMember["role"]) => {
+        setTeamMembers((prev) => prev.map((m) => (m.email === email ? { ...m, role } : m)));
+    };
+
+    const getInitials = (text: string) => {
+        if (!text) return "";
+        const base = text.split("@")[0] || text;
+        const parts = base.split(/[._-]/).filter(Boolean);
+        const first = parts[0]?.[0] || base[0];
+        const second = parts.length > 1 ? parts[1][0] : base[1];
+        return (first + (second || "")).toUpperCase();
     };
 
     const handleSave = async (status: "inactive" | "active") => {
@@ -231,13 +261,15 @@ export default function NewCareerWizard() {
                     );
                 })}
             </div>
+            {/* Divider below stepper */}
+            <div style={{ width: "100%", height: 1, background: "#EAECF5", marginBottom: 24 }}></div>
 
             {/* Form grid */}
             <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
                 {/* Left column */}
                 <div style={{ width: "60%", display: "flex", flexDirection: "column", gap: 24 }}>
                     {/* 1. Career Information */}
-                    <div style={{ background: "#fff", border: "1px solid #E9EAEB", borderRadius: 12, padding: 8 }}>
+                    <div style={{ background: "#fff", borderRadius: 12, padding: 8 }}>
                         {/* Heading + Content pattern */}
                         <div style={{ display: "flex", flexDirection: "column", gap: 4, fontFamily: "Satoshi, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif" }}>
                             {/* Heading with padding */}
@@ -309,7 +341,8 @@ export default function NewCareerWizard() {
                                                     const provinceObj = provinceList.find((p) => p.name === prov);
                                                     const cities = (philippineLocations.cities as any[]).filter((c: any) => c.province === provinceObj.key);
                                                     setCityList(cities);
-                                                    if (cities.length > 0) setCity(cities[0].name);
+                                                    // Reset city so placeholder displays until user selects a city
+                                                    setCity("");
                                                 }}
                                                 screeningSetting={province}
                                                 settingList={provinceList}
@@ -364,13 +397,10 @@ export default function NewCareerWizard() {
                     </div>
 
                     {/* 2. Job Description */}
-                    <div style={{ background: "#fff", border: "1px solid #E9EAEB", borderRadius: 12, padding: 8 }}>
+                    <div style={{ background: "#fff", borderRadius: 12, padding: 8 }}>
                         <div style={{ display: "flex", flexDirection: "column", gap: 4, fontFamily: "Satoshi, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif" }}>
-                            <div style={{ padding: "4px 12px", display: "flex", alignItems: "center", gap: 8 }}>
-                                <div style={{ width: 32, height: 32, backgroundColor: "#181D27", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                                    <i className="la la-file-text" style={{ color: "#FFFFFF", fontSize: 20 }}></i>
-                                </div>
-                                <span style={{ fontSize: 16, color: "#181D27", fontWeight: 700 }}>Job Description</span>
+                            <div style={{ padding: "4px 12px" }}>
+                                <span style={{ fontSize: 16, color: "#181D27", fontWeight: 700 }}>2. Job Description</span>
                             </div>
                             <div style={{ padding: 24, border: "1px solid #EAECF5", borderRadius: 8 }}>
                                 <RichTextEditor text={description} setText={setDescription} />
@@ -379,44 +409,151 @@ export default function NewCareerWizard() {
                     </div>
 
                     {/* 3. Team Access */}
-                    <div style={{ background: "#fff", border: "1px solid #E9EAEB", borderRadius: 12, padding: 8 }}>
+                    <div style={{ background: "#fff", borderRadius: 12, padding: 8 }}>
                         <div style={{ display: "flex", flexDirection: "column", gap: 4, fontFamily: "Satoshi, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif" }}>
-                            <div style={{ padding: "4px 12px", display: "flex", alignItems: "center", gap: 8 }}>
-                                <div style={{ width: 32, height: 32, backgroundColor: "#181D27", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                                    <i className="la la-users" style={{ color: "#FFFFFF", fontSize: 20 }}></i>
-                                </div>
-                                <span style={{ fontSize: 16, color: "#181D27", fontWeight: 700 }}>Team Access</span>
+                            <div style={{ padding: "4px 12px" }}>
+                                <span style={{ fontSize: 16, color: "#181D27", fontWeight: 700 }}>3. Team Access</span>
                             </div>
-                            <div style={{ padding: 24, border: "1px solid #EAECF5", borderRadius: 8 }}>
-                                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                                    <input
-                                        className="form-control nwz-input"
-                                        style={{ padding: "10px 14px" }}
-                                        placeholder="Add member by email"
-                                        value={newMemberEmail}
-                                        onChange={(e) => setNewMemberEmail(e.target.value)}
-                                    />
-                                    <CustomDropdown
-                                        onSelectSetting={(role) => setNewMemberRole(role)}
-                                        screeningSetting={newMemberRole}
-                                        settingList={[{ name: "Collaborator" }, { name: "Job Owner" }]}
-                                        placeholder="Role"
-                                    />
-                                    <button className="button-primary-v2" onClick={addMember}>Add member</button>
+                            {/* Content container: vertical, 16px gap */}
+                            <div style={{ padding: 24, border: "1px solid #EAECF5", borderRadius: 8, display: "flex", flexDirection: "column", gap: 16, position: 'relative' }}>
+                                {/* Frame 1: heading+desc left, Add member button right */}
+                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                        <div style={{ fontSize: 14, fontWeight: 700, color: "#181D27" }}>Add more members</div>
+                                        <div style={{ fontSize: 14, fontWeight: 500, color: "#717680" }}>You can add other members to collaborate on this career.</div>
+                                    </div>
+                                    <div style={{ position: 'relative' }}>
+                                        <button
+                                            type="button"
+                                            onClick={() => setMemberPickerOpen(v => !v)}
+                                            style={{
+                                                display: "inline-flex",
+                                                alignItems: "center",
+                                                justifyContent: "space-between",
+                                                gap: 8,
+                                                border: memberPickerOpen ? "1px solid #D0D5DD" : "1px solid #E9EAEB",
+                                                boxShadow: memberPickerOpen ? '0 1px 2px rgba(16,24,40,0.05)' : 'none',
+                                                borderRadius: 8,
+                                                padding: "10px 14px",
+                                                minWidth: 200,
+                                                background: "#fff",
+                                                color: "#717680",
+                                                cursor: "pointer",
+                                                fontSize: 16,
+                                                fontWeight: 500
+                                            }}
+                                        >
+                                            <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 16, fontWeight: 500, color: '#717680' }}>
+                                                <img src="/icons/user2.svg" alt="users" width={20} height={20} />
+                                                <span>Add member</span>
+                                            </span>
+                                            <i className="la la-angle-down" style={{ color: "#717680" }}></i>
+                                        </button>
+                                        {memberPickerOpen && (
+                                            <div style={{ position: 'absolute', right: 0, bottom: 'calc(100% + 8px)', width: 320, background: '#FFFFFF', border: '1px solid #E9EAEB', boxShadow: '0px 4px 8px rgba(0,0,0,0.04), 0px 2px 4px rgba(0,0,0,0.03)', borderRadius: 12, zIndex: 20, display: 'flex', flexDirection: 'column' }}>
+                                                {/* Search header */}
+                                                <div style={{ padding: 12 }}>
+                                                    <div style={{ position: 'relative' }}>
+                                                        <img src="/icons/search.svg" alt="search" width={16} height={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', opacity: 0.8 }} />
+                                                        <input
+                                                            autoFocus
+                                                            value={memberSearch}
+                                                            onChange={(e) => setMemberSearch(e.target.value)}
+                                                            placeholder="Search member"
+                                                            style={{ width: '100%', padding: '10px 12px 10px 36px', border: '1px solid #E9EAEB', borderRadius: 8, fontSize: 14, fontWeight: 500, color: '#181D27' }}
+                                                            className="nwz-input"
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <div style={{ width: '100%', height: 1, background: '#F5F5F5' }}></div>
+                                                {/* Members list */}
+                                                <div style={{ maxHeight: 260, overflowY: 'auto', padding: '4px 0' }}>
+                                                    {allOrgMembers
+                                                        .filter(m => {
+                                                            if (!memberSearch) return true;
+                                                            return (m.email || '').toLowerCase().includes(memberSearch.toLowerCase()) || (m.name || '').toLowerCase().includes(memberSearch.toLowerCase());
+                                                        })
+                                                        .map(m => {
+                                                            const already = teamMembers.some(tm => tm.email === m.email);
+                                                            return (
+                                                                <button
+                                                                    key={m._id || m.email}
+                                                                    onClick={() => { addMember(m.email, 'Collaborator'); setMemberPickerOpen(false); setMemberSearch(''); }}
+                                                                    disabled={already}
+                                                                    style={{
+                                                                        width: '100%',
+                                                                        background: 'transparent',
+                                                                        border: 'none',
+                                                                        textAlign: 'left',
+                                                                        cursor: already ? 'not-allowed' : 'pointer',
+                                                                        padding: '4px 12px',
+                                                                        display: 'flex',
+                                                                        flexDirection: 'row',
+                                                                        alignItems: 'center',
+                                                                        gap: 8,
+                                                                        opacity: already ? 0.6 : 1,
+                                                                    }}
+                                                                >
+                                                                    {m.image ? (
+                                                                        <img src={m.image} alt={m.email} style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }} />
+                                                                    ) : (
+                                                                        <div style={{ width: 24, height: 24, borderRadius: '50%', background: '#EAECF5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 600, color: '#181D27' }}>{getInitials(m.email || m.name)}</div>
+                                                                    )}
+                                                                    <div style={{ display: 'flex', flexDirection: 'row', gap: 8, minWidth: 0, alignItems: 'center' }}>
+                                                                        <span style={{ fontSize: 14, fontWeight: 500, color: '#181D27', whiteSpace: 'nowrap' }}>{m.name || m.email}</span>
+                                                                        <span style={{ fontSize: 14, fontWeight: 500, color: '#717680', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>{m.email}</span>
+                                                                    </div>
+                                                                </button>
+                                                            )
+                                                        })}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
 
-                                <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+                                {/* Divider */}
+                                <div style={{ width: "100%", height: 1, background: "#E9EAEB" }}></div>
+
+                                {/* Frame 2: member list */}
+                                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                                     {teamMembers.map((m) => (
-                                        <div key={m.email} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", border: "1px solid #E9EAEB", borderRadius: 8 }}>
-                                            <div>
-                                                <div style={{ fontSize: 14, fontWeight: 600 }}>{m.email}</div>
-                                                <div style={{ fontSize: 12, color: "#717680" }}>{m.role}</div>
+                                        <div key={m.email} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                                            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                                                {user?.email === m.email && user?.image ? (
+                                                    <img src={user.image} alt={m.email} style={{ width: 36, height: 36, borderRadius: "50%", objectFit: 'cover' }} />
+                                                ) : (
+                                                    <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#EAECF5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#181D27' }}>{getInitials(m.email)}</div>
+                                                )}
+                                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                    <span style={{ fontSize: 14, fontWeight: 600, color: '#181D27' }}>{m.email === user?.email ? `${user?.name || m.email} (You)` : m.email}</span>
+                                                    <span style={{ fontSize: 12, fontWeight: 500, color: '#717680' }}>{m.email}</span>
+                                                </div>
                                             </div>
-                                            {m.email !== user?.email && (
-                                                <button className="btn btn-sm btn-outline-danger" onClick={() => removeMember(m.email)}>Remove</button>
-                                            )}
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                                                <div style={{ minWidth: 220 }}>
+                                                    <CustomDropdown
+                                                        onSelectSetting={(role) => updateMemberRole(m.email, role as TeamMember['role'])}
+                                                        screeningSetting={m.role}
+                                                        settingList={[{ name: 'Job Owner' }, { name: 'Collaborator' }]}
+                                                        placeholder="Role"
+                                                    />
+                                                </div>
+                                                <button
+                                                    onClick={() => removeMember(m.email)}
+                                                    style={{ width: 40, height: 40, borderRadius: '50%', border: '1px solid #E9EAEB', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                                                    title="Remove"
+                                                >
+                                                    <img src="/icons/trash-2.svg" alt="remove" width={20} height={20} />
+                                                </button>
+                                            </div>
                                         </div>
                                     ))}
+                                </div>
+
+                                {/* Supporting text */}
+                                <div style={{ fontSize: 12, lineHeight: "18px", fontWeight: 500, color: "#717680" }}>
+                                    *Admins can view all careers regardless of specific access settings.
                                 </div>
                             </div>
                         </div>
