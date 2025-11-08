@@ -8,7 +8,7 @@ import RichTextEditor from "./RichTextEditor";
 import axios from "axios";
 import { candidateActionToast, errorToast } from "@/lib/Utils";
 
-type TeamMember = { email: string; role: "Job Owner" | "Collaborator" };
+type TeamMember = { email: string; role: "Job Owner" | "Contributor" | "Reviewer" };
 
 const workSetupOptions = [
     { name: "Fully Remote" },
@@ -32,13 +32,8 @@ const defaultQuestions = [
 
 export default function NewCareerWizard() {
     const { user, orgID } = useAppContext();
-    const StepIcon = ({ active }: { active: boolean }) => (
-        <svg width="17" height="17" viewBox="0 0 17 17" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path
-                d="M8.33333 0C3.74167 0 0 3.74167 0 8.33333C0 12.925 3.74167 16.6667 8.33333 16.6667C12.925 16.6667 16.6667 12.925 16.6667 8.33333C16.6667 3.74167 12.925 0 8.33333 0ZM8.33333 15C4.65833 15 1.66667 12.0083 1.66667 8.33333C1.66667 4.65833 4.65833 1.66667 8.33333 1.66667C12.0083 1.66667 15 4.65833 15 8.33333C15 12.0083 12.0083 15 8.33333 15ZM10.8333 8.33333C10.8333 9.71667 9.71667 10.8333 8.33333 10.8333C6.95 10.8333 5.83333 9.71667 5.83333 8.33333C5.83333 6.95 6.95 5.83333 8.33333 5.83333C9.71667 5.83333 10.8333 6.95 10.8333 8.33333Z"
-                fill={active ? "#111827" : "#ADB5BD"}
-            />
-        </svg>
+    const StepIcon = () => (
+        <img src="/icons/alert-triangle.svg" alt="step" width={20} height={20} />
     );
 
     // Step control
@@ -71,13 +66,15 @@ export default function NewCareerWizard() {
     // Team access (visual only for now)
     const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
     const [newMemberEmail, setNewMemberEmail] = useState("");
-    const [newMemberRole, setNewMemberRole] = useState<TeamMember["role"]>("Collaborator");
+    const [newMemberRole, setNewMemberRole] = useState<TeamMember["role"]>("Contributor");
+    const [rolePickerFor, setRolePickerFor] = useState<string | null>(null);
     const [memberPickerOpen, setMemberPickerOpen] = useState(false);
     const [allOrgMembers, setAllOrgMembers] = useState<any[]>([]);
     const [memberSearch, setMemberSearch] = useState("");
 
     // Internal flags
     const [submitting, setSubmitting] = useState(false);
+    const [attemptedContinue, setAttemptedContinue] = useState(false);
     const submittedRef = useRef(false);
 
     useEffect(() => {
@@ -122,7 +119,9 @@ export default function NewCareerWizard() {
         );
     }, [jobTitle, description, workSetup, province, city]);
 
-    const addMember = (email: string, role: TeamMember['role'] = 'Collaborator') => {
+    const isInvalid = (val: string) => attemptedContinue && val.trim().length === 0;
+
+    const addMember = (email: string, role: TeamMember['role'] = 'Contributor') => {
         if (!email) return;
         if (teamMembers.some((m) => m.email === email)) {
             errorToast("Member already added", 1200);
@@ -147,6 +146,8 @@ export default function NewCareerWizard() {
         const second = parts.length > 1 ? parts[1][0] : base[1];
         return (first + (second || "")).toUpperCase();
     };
+
+    const hasJobOwner = useMemo(() => teamMembers.some((m) => m.role === "Job Owner"), [teamMembers]);
 
     const handleSave = async (status: "inactive" | "active") => {
         if (submittedRef.current) return;
@@ -227,9 +228,15 @@ export default function NewCareerWizard() {
                         Save as Unpublished
                     </button>
                     <button
-                        disabled={!canProceedStep1 || submitting}
-                        style={{ width: "fit-content", background: !canProceedStep1 || submitting ? "#D5D7DA" : "black", color: "#fff", border: "1px solid #E9EAEB", padding: "8px 16px", borderRadius: 60, cursor: !canProceedStep1 || submitting ? "not-allowed" : "pointer" }}
-                        onClick={() => handleSave("inactive")}
+                        disabled={submitting}
+                        style={{ width: "fit-content", background: submitting ? "#D5D7DA" : "black", color: "#fff", border: "1px solid #E9EAEB", padding: "8px 16px", borderRadius: 60, cursor: submitting ? "not-allowed" : "pointer" }}
+                        onClick={() => {
+                            if (!canProceedStep1) {
+                                setAttemptedContinue(true);
+                                return;
+                            }
+                            handleSave("inactive");
+                        }}
                     >
                         <i className="la la-check-circle" style={{ color: "#fff", fontSize: 20, marginRight: 8 }}></i>
                         Save and Continue
@@ -249,7 +256,7 @@ export default function NewCareerWizard() {
                             {/* progress container */}
                             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                 <div style={{ width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                                    <StepIcon active={isActive} />
+                                    <StepIcon />
                                 </div>
                                 <div style={{ flex: 1, height: 2, background: lineColor }} />
                             </div>
@@ -265,9 +272,9 @@ export default function NewCareerWizard() {
             <div style={{ width: "100%", height: 1, background: "#EAECF5", marginBottom: 24 }}></div>
 
             {/* Form grid */}
-            <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
+            <div style={{ display: "flex", gap: 24, alignItems: "flex-start" }}>
                 {/* Left column */}
-                <div style={{ width: "60%", display: "flex", flexDirection: "column", gap: 24 }}>
+                <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 24 }}>
                     {/* 1. Career Information */}
                     <div style={{ background: "#fff", borderRadius: 12, padding: 8 }}>
                         {/* Heading + Content pattern */}
@@ -283,13 +290,24 @@ export default function NewCareerWizard() {
                                     <div style={{ fontSize: 14, fontWeight: 700, color: "#181D27", marginBottom: 8 }}>Basic Information</div>
                                     <div>
                                         <div style={{ fontSize: 14, color: "#667085", marginBottom: 6 }}>Job Title</div>
-                                        <input
-                                            className="form-control nwz-input"
-                                            style={{ padding: "10px 14px" }}
-                                            placeholder="Enter job title"
-                                            value={jobTitle}
-                                            onChange={(e) => setJobTitle(e.target.value)}
-                                        />
+                                        <div style={{ position: 'relative', display: 'flex', flexDirection: 'column' }}>
+                                            <input
+                                                className="form-control nwz-input"
+                                                style={{ padding: "10px 14px", border: isInvalid(jobTitle) ? '1px solid #FDA29B' : undefined }}
+                                                placeholder="Enter job title"
+                                                value={jobTitle}
+                                                onChange={(e) => setJobTitle(e.target.value)}
+                                            />
+                                            {isInvalid(jobTitle) && (
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
+                                                    <img src="/icons/alert-circle.svg" width={16} height={16} alt="required" />
+                                                    <span style={{ fontSize: 12, fontWeight: 500, color: '#F04438' }}>This is a required field</span>
+                                                </div>
+                                            )}
+                                            {isInvalid(jobTitle) && (
+                                                <img src="/icons/alert-circle.svg" width={16} height={16} alt="error" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)' }} />
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
 
@@ -308,12 +326,20 @@ export default function NewCareerWizard() {
                                         </div>
                                         <div>
                                             <div style={{ fontSize: 14, color: "#667085", marginBottom: 6 }}>Arrangement</div>
-                                            <CustomDropdown
-                                                onSelectSetting={(v) => setWorkSetup(v)}
-                                                screeningSetting={workSetup}
-                                                settingList={workSetupOptions}
-                                                placeholder="Choose work arrangement"
-                                            />
+                                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                <CustomDropdown
+                                                    onSelectSetting={(v) => setWorkSetup(v)}
+                                                    screeningSetting={workSetup}
+                                                    settingList={workSetupOptions}
+                                                    placeholder="Choose work arrangement"
+                                                    invalid={attemptedContinue && workSetup.trim().length === 0}
+                                                />
+                                                {attemptedContinue && workSetup.trim().length === 0 && (
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
+                                                        <span style={{ fontSize: 12, fontWeight: 500, color: '#F04438' }}>This is a required field</span>
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -335,28 +361,43 @@ export default function NewCareerWizard() {
                                         </div>
                                         <div>
                                             <div style={{ fontSize: 14, color: "#667085", marginBottom: 6 }}>State / Province</div>
-                                            <CustomDropdown
-                                                onSelectSetting={(prov) => {
-                                                    setProvince(prov);
-                                                    const provinceObj = provinceList.find((p) => p.name === prov);
-                                                    const cities = (philippineLocations.cities as any[]).filter((c: any) => c.province === provinceObj.key);
-                                                    setCityList(cities);
-                                                    // Reset city so placeholder displays until user selects a city
-                                                    setCity("");
-                                                }}
-                                                screeningSetting={province}
-                                                settingList={provinceList}
-                                                placeholder="Choose state / province"
-                                            />
+                                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                <CustomDropdown
+                                                    onSelectSetting={(prov) => {
+                                                        setProvince(prov);
+                                                        const provinceObj = provinceList.find((p) => p.name === prov);
+                                                        const cities = (philippineLocations.cities as any[]).filter((c: any) => c.province === provinceObj.key);
+                                                        setCityList(cities);
+                                                        setCity("");
+                                                    }}
+                                                    screeningSetting={province}
+                                                    settingList={provinceList}
+                                                    placeholder="Choose state / province"
+                                                    invalid={attemptedContinue && province.trim().length === 0}
+                                                />
+                                                {attemptedContinue && province.trim().length === 0 && (
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
+                                                        <span style={{ fontSize: 12, fontWeight: 500, color: '#F04438' }}>This is a required field</span>
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                         <div>
                                             <div style={{ fontSize: 14, color: "#667085", marginBottom: 6 }}>City</div>
-                                            <CustomDropdown
-                                                onSelectSetting={(ct) => setCity(ct)}
-                                                screeningSetting={city}
-                                                settingList={cityList}
-                                                placeholder="Choose city"
-                                            />
+                                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                <CustomDropdown
+                                                    onSelectSetting={(ct) => setCity(ct)}
+                                                    screeningSetting={city}
+                                                    settingList={cityList}
+                                                    placeholder="Choose city"
+                                                    invalid={attemptedContinue && city.trim().length === 0}
+                                                />
+                                                {attemptedContinue && city.trim().length === 0 && (
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
+                                                        <span style={{ fontSize: 12, fontWeight: 500, color: '#F04438' }}>This is a required field</span>
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -402,8 +443,13 @@ export default function NewCareerWizard() {
                             <div style={{ padding: "4px 12px" }}>
                                 <span style={{ fontSize: 16, color: "#181D27", fontWeight: 700 }}>2. Job Description</span>
                             </div>
-                            <div style={{ padding: 24, border: "1px solid #EAECF5", borderRadius: 8 }}>
+                            <div style={{ padding: 24, border: isInvalid(description) ? "1px solid #FDA29B" : "1px solid #EAECF5", borderRadius: 8, display: 'flex', flexDirection: 'column' }}>
                                 <RichTextEditor text={description} setText={setDescription} />
+                                {isInvalid(description) && (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
+                                        <span style={{ fontSize: 12, fontWeight: 500, color: '#F04438' }}>This is a required field</span>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -478,7 +524,7 @@ export default function NewCareerWizard() {
                                                             return (
                                                                 <button
                                                                     key={m._id || m.email}
-                                                                    onClick={() => { addMember(m.email, 'Collaborator'); setMemberPickerOpen(false); setMemberSearch(''); }}
+                                                                    onClick={() => { addMember(m.email, 'Contributor'); setMemberPickerOpen(false); setMemberSearch(''); }}
                                                                     disabled={already}
                                                                     style={{
                                                                         width: '100%',
@@ -515,6 +561,14 @@ export default function NewCareerWizard() {
                                 {/* Divider */}
                                 <div style={{ width: "100%", height: 1, background: "#E9EAEB" }}></div>
 
+                                {/* Warning: requires a job owner */}
+                                {!hasJobOwner && (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#F04438' }}>
+                                        <img src="/icons/alert-triangle.svg" alt="alert" width={20} height={20} />
+                                        <span style={{ fontSize: 14, fontWeight: 500 }}>Career must have a job owner. Please assign a job owner.</span>
+                                    </div>
+                                )}
+
                                 {/* Frame 2: member list */}
                                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                                     {teamMembers.map((m) => (
@@ -530,14 +584,42 @@ export default function NewCareerWizard() {
                                                     <span style={{ fontSize: 12, fontWeight: 500, color: '#717680' }}>{m.email}</span>
                                                 </div>
                                             </div>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                                                <div style={{ minWidth: 220 }}>
-                                                    <CustomDropdown
-                                                        onSelectSetting={(role) => updateMemberRole(m.email, role as TeamMember['role'])}
-                                                        screeningSetting={m.role}
-                                                        settingList={[{ name: 'Job Owner' }, { name: 'Collaborator' }]}
-                                                        placeholder="Role"
-                                                    />
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 16, position: 'relative' }}>
+                                                <div style={{ minWidth: 220, position: 'relative' }}>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setRolePickerFor(rolePickerFor === m.email ? null : m.email)}
+                                                        style={{ width: '100%', display: 'inline-flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, border: rolePickerFor === m.email ? '1px solid #D0D5DD' : '1px solid #E9EAEB', borderRadius: 8, padding: '10px 14px', background: '#fff', cursor: 'pointer', fontSize: 16, fontWeight: 500, color: '#181D27' }}
+                                                    >
+                                                        <span style={{ fontSize: 16, fontWeight: 500, color: '#181D27' }}>{m.role}</span>
+                                                        <i className="la la-angle-down" style={{ color: '#717680' }}></i>
+                                                    </button>
+                                                    {rolePickerFor === m.email && (
+                                                        <div style={{ position: 'absolute', top: 0, left: 'calc(100% + 8px)', width: 320, background: '#FFFFFF', border: '1px solid #E9EAEB', borderRadius: 8, padding: 8, zIndex: 30, boxShadow: '0px 4px 8px rgba(0,0,0,0.04), 0px 2px 4px rgba(0,0,0,0.03)' }}>
+                                                            {[
+                                                                { title: 'Job Owner', desc: 'Leads the hiring process for assigned jobs. Has access with all career settings.' },
+                                                                { title: 'Contributor', desc: 'Helps evaluate candidates and assist with hiring tasks. Can move candidates through the pipeline, but cannot change any career settings.' },
+                                                                { title: 'Reviewer', desc: 'Reviews candidates and provides feedback. Can only view candidate profiles and comment.' },
+                                                            ].map((opt) => {
+                                                                const selected = m.role === opt.title;
+                                                                return (
+                                                                    <button
+                                                                        key={opt.title}
+                                                                        onClick={() => { updateMemberRole(m.email, opt.title as TeamMember['role']); setRolePickerFor(null); }}
+                                                                        style={{ width: '100%', textAlign: 'left', background: 'transparent', border: 'none', cursor: 'pointer', borderRadius: 8, padding: 0 }}
+                                                                    >
+                                                                        <div style={{ padding: '10px 14px', borderRadius: 8, background: selected ? '#EEF4FF' : 'transparent', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                                                <span style={{ fontSize: 14, fontWeight: 700, color: '#181D27' }}>{opt.title}</span>
+                                                                                {selected && <img src="/icons/checkV4.svg" width={20} height={20} alt="selected" />}
+                                                                            </div>
+                                                                            <span style={{ fontSize: 14, fontWeight: 500, color: '#667085' }}>{opt.desc}</span>
+                                                                        </div>
+                                                                    </button>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    )}
                                                 </div>
                                                 <button
                                                     onClick={() => removeMember(m.email)}
@@ -560,55 +642,28 @@ export default function NewCareerWizard() {
                     </div>
                 </div>
 
-                {/* Right column */}
-                <div style={{ width: "40%", display: "flex", flexDirection: "column", gap: 8 }}>
-                    <div style={{ background: "#fff", border: "1px solid #E9EAEB", borderRadius: 12 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <div style={{ width: 32, height: 32, backgroundColor: "#181D27", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                                <i className="la la-ellipsis-h" style={{ color: "#FFFFFF", fontSize: 20 }}></i>
-                            </div>
-                            <span style={{ fontSize: 16, color: "#181D27", fontWeight: 700 }}>Settings</span>
+                {/* Right column - Tips panel */}
+                <div style={{ width: 'min(320px, 100dvh)', display: "flex", flexDirection: "column", gap: 8 }}>
+                    <div style={{ background: "#fff", border: "1px solid #E9EAEB", borderRadius: 12, padding: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {/* Heading */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <img src="/icons/tips_and_updates.svg" alt="tips" width={20} height={20} />
+                            <span style={{ fontSize: 16, fontWeight: 700, color: '#181D27' }}>Tips</span>
                         </div>
-                        <div style={{ padding: 16 }}>
-                            {/* Keep only settings-related controls here for now */}
-                            <div style={{ display: "flex", flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                    <i className="la la-id-badge" style={{ color: "#414651", fontSize: 20 }}></i>
-                                    <span>Screening Setting</span>
-                                </div>
-                            </div>
-                            <CustomDropdown
-                                onSelectSetting={(setting) => {
-                                    setScreeningSetting(setting);
-                                }}
-                                screeningSetting={screeningSetting}
-                                settingList={[{ name: "Good Fit and above" }, { name: "Only Strong Fit" }, { name: "No Automatic Promotion" }]}
-                            />
-                            <span style={{ fontSize: 12, color: "#667085" }}>This setting allows Jia to automatically endorse candidates who meet the chosen criteria.</span>
-
-                            <div style={{ display: "flex", flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 12 }}>
-                                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                    <i className="la la-video" style={{ color: "#414651", fontSize: 20 }}></i>
-                                    <span>Require Video Interview</span>
-                                </div>
-                                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                    <label className="switch">
-                                        <input type="checkbox" checked={requireVideo} onChange={() => setRequireVideo(!requireVideo)} />
-                                        <span className="slider round"></span>
-                                    </label>
-                                    <span>{requireVideo ? "Yes" : "No"}</span>
-                                </div>
-                            </div>
-                            <div style={{ marginTop: 12 }}>
-                                <div style={{ fontSize: 12, color: "#667085", marginBottom: 6 }}>Work Setup Remarks</div>
-                                <input
-                                    className="form-control nwz-input"
-                                    style={{ padding: "10px 14px" }}
-                                    placeholder="Additional remarks about work setup (optional)"
-                                    value={workSetupRemarks}
-                                    onChange={(e) => setWorkSetupRemarks(e.target.value)}
-                                />
-                            </div>
+                        {/* Content */}
+                        <div style={{ padding: 24 }}>
+                            <p style={{ margin: 0, lineHeight: '20px', marginBottom: 14 }}>
+                                <span style={{ fontWeight: 700, fontSize: 14, color: '#181D27' }}>Use clear, standard job titles</span>
+                                <span style={{ fontWeight: 500, fontSize: 14, color: '#667085' }}> for better searchability (e.g., “Software Engineer” instead of “Code Ninja” or “Tech Rockstar”).</span>
+                            </p>
+                            <p style={{ margin: 0, lineHeight: '20px', marginBottom: 14 }}>
+                                <span style={{ fontWeight: 700, fontSize: 14, color: '#181D27' }}>Avoid abbreviations</span>
+                                <span style={{ fontWeight: 500, fontSize: 14, color: '#667085' }}> or internal role codes that applicants may not understand (e.g., use “QA Engineer” instead of “QE II” or “QA-TL”).</span>
+                            </p>
+                            <p style={{ margin: 0, lineHeight: '20px' }}>
+                                <span style={{ fontWeight: 700, fontSize: 14, color: '#181D27' }}>Keep it concise</span>
+                                <span style={{ fontWeight: 500, fontSize: 14, color: '#667085' }}> — job titles should be no more than a few words (2–4 max), avoiding fluff or marketing terms.</span>
+                            </p>
                         </div>
                     </div>
                 </div>
