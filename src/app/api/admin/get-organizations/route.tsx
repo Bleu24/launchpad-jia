@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
         defaultSort = {
             updatedAt: 1
         };
-    } 
+    }
     if (sortBy === "Alphabetical (A-Z)") {
         defaultSort = {
             nameLower: 1
@@ -50,14 +50,14 @@ export async function GET(request: NextRequest) {
                     pipeline: [
                         {
                             $match: {
-                              $expr: {
-                                $and: [
-                                  { $eq: ["$orgID", "$$orgID"] }, 
-                                  { $eq: ["$status", "active"] } 
-                                ]
-                              }
+                                $expr: {
+                                    $and: [
+                                        { $eq: ["$orgID", "$$orgID"] },
+                                        { $eq: ["$status", "active"] }
+                                    ]
+                                }
                             }
-                        } 
+                        }
                     ],
                     as: "careers"
                 }
@@ -104,7 +104,7 @@ export async function GET(request: NextRequest) {
                     updatedAt: 1,
                     activeJobs: { $size: "$careers" },
                     members: { $size: "$members" },
-                    nameLower: { 
+                    nameLower: {
                         $toLower: "$name"
                     },
                     extraJobSlots: 1,
