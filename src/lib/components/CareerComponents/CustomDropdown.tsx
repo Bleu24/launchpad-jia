@@ -2,7 +2,7 @@
 import { useState } from "react";
 
 export default function CustomDropdown(props) {
-  const { onSelectSetting, screeningSetting, settingList, placeholder } = props;
+  const { onSelectSetting, screeningSetting, settingList, placeholder, invalid } = props as any;
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   return (
@@ -10,7 +10,7 @@ export default function CustomDropdown(props) {
       <button
         disabled={settingList.length === 0}
         className="dropdown-btn fade-in-bottom"
-        style={{ width: "100%", textTransform: "capitalize", fontFamily: 'Satoshi, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif', fontSize: 16, fontWeight: screeningSetting ? 600 : 500, color: screeningSetting ? '#181D27' : '#717680', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+        style={{ width: "100%", textTransform: "capitalize", fontFamily: 'Satoshi, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif', fontSize: 16, fontWeight: screeningSetting ? 600 : 500, color: screeningSetting ? '#181D27' : '#717680', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', border: `1px solid ${invalid ? '#FDA29B' : '#E9EAEB'}`, borderRadius: 8, background: '#fff', padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
         type="button"
         onClick={() => setDropdownOpen((v) => !v)}
       >
