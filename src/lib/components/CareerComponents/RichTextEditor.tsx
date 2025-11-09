@@ -2,7 +2,13 @@
 
 import React, { useRef, useEffect } from "react";
 
-export default function RichTextEditor({setText, text}) {
+interface RichTextEditorProps {
+  setText: (val: string) => void;
+  text: string;
+  invalid?: boolean; // when true, show red border
+}
+
+export default function RichTextEditor({ setText, text, invalid = false }: RichTextEditorProps) {
     const descriptionEditorRef = useRef(null);
 
     const formatText = (command, value = null) => {
@@ -67,7 +73,7 @@ export default function RichTextEditor({setText, text}) {
         <div
           ref={descriptionEditorRef}
           contentEditable={true}
-          className="form-control"
+          className={`form-control rtext-editor ${invalid ? 'rtext-invalid' : ''}`}
           style={{
             height: "300px",
             overflowY: "auto",
@@ -77,6 +83,7 @@ export default function RichTextEditor({setText, text}) {
             lineHeight: "1.5",
             position: "relative"
           }}
+          aria-invalid={invalid ? 'true' : undefined}
           onInput={handleDescriptionChange}
           onBlur={handleDescriptionChange}
           onPaste={handlePaste}
@@ -159,6 +166,23 @@ export default function RichTextEditor({setText, text}) {
             position: absolute;
             top: 12px;
             left: 12px;
+          }
+          .rtext-editor {
+            border: 1px solid #E9EAEB !important;
+            border-radius: 4px 4px 0 0;
+          }
+          .rtext-editor:focus {
+            border-color: #E9EAEB !important;
+            box-shadow: none !important;
+          }
+          .rtext-editor.rtext-invalid,
+          .rtext-editor[aria-invalid="true"] {
+            border: 1px solid #F04438 !important;
+          }
+          .rtext-editor.rtext-invalid:focus,
+          .rtext-editor[aria-invalid="true"]:focus {
+            border-color: #F04438 !important;
+            box-shadow: none !important;
           }
         `}</style>
         </>
