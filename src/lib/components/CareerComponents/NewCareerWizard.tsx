@@ -357,7 +357,7 @@ export default function NewCareerWizard() {
                                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                                         <div>
                                             <div style={{ fontSize: 14, color: "#667085", marginBottom: 6 }}>Employment Type</div>
-                                            <div style={{ display:'flex', flexDirection:'column' }}>
+                                            <div style={{ display: 'flex', flexDirection: 'column' }}>
                                                 <CustomDropdown
                                                     onSelectSetting={(v) => setEmploymentType(v)}
                                                     screeningSetting={employmentType}
@@ -366,8 +366,8 @@ export default function NewCareerWizard() {
                                                     invalid={attemptedContinue && employmentType.trim().length === 0}
                                                 />
                                                 {attemptedContinue && employmentType.trim().length === 0 && (
-                                                    <div style={{ display:'flex', alignItems:'center', gap:6, marginTop:8 }}>
-                                                        <span style={{ fontSize:12, fontWeight:500, color:'#F04438' }}>This is a required field</span>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
+                                                        <span style={{ fontSize: 12, fontWeight: 500, color: '#F04438' }}>This is a required field</span>
                                                     </div>
                                                 )}
                                             </div>
@@ -474,8 +474,8 @@ export default function NewCareerWizard() {
                                                 )}
                                             </div>
                                             {attemptedContinue && (minimumSalary === "" || minimumSalary === null) && (
-                                                <div style={{ display:'flex', alignItems:'center', gap:6, marginTop:8 }}>
-                                                    <span style={{ fontSize:12, fontWeight:500, color:'#F04438' }}>This is a required field</span>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
+                                                    <span style={{ fontSize: 12, fontWeight: 500, color: '#F04438' }}>This is a required field</span>
                                                 </div>
                                             )}
                                         </div>
@@ -490,8 +490,8 @@ export default function NewCareerWizard() {
                                                 )}
                                             </div>
                                             {attemptedContinue && (maximumSalary === "" || maximumSalary === null) && (
-                                                <div style={{ display:'flex', alignItems:'center', gap:6, marginTop:8 }}>
-                                                    <span style={{ fontSize:12, fontWeight:500, color:'#F04438' }}>This is a required field</span>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
+                                                    <span style={{ fontSize: 12, fontWeight: 500, color: '#F04438' }}>This is a required field</span>
                                                 </div>
                                             )}
                                         </div>
