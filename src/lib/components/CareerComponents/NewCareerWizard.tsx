@@ -118,20 +118,21 @@ export default function NewCareerWizard() {
         return (
             jobTitle.trim().length > 0 &&
             description.trim().length > 0 &&
+            employmentType.trim().length > 0 &&
             workSetup.trim().length > 0 &&
             province.trim().length > 0 &&
             city.trim().length > 0
         );
-    }, [jobTitle, description, workSetup, province, city]);
+    }, [jobTitle, description, employmentType, workSetup, province, city]);
 
     const isInvalid = (val: string) => attemptedContinue && val.trim().length === 0;
 
     // Step 1 completeness for stepper icon
     const fieldsFilledCount = useMemo(() => {
-        const values = [jobTitle, description, workSetup, province, city];
+        const values = [jobTitle, description, employmentType, workSetup, province, city];
         return values.filter((v) => v && v.trim().length > 0).length;
-    }, [jobTitle, description, workSetup, province, city]);
-    const pageIncomplete = fieldsFilledCount < 5;
+    }, [jobTitle, description, employmentType, workSetup, province, city]);
+    const pageIncomplete = fieldsFilledCount < 6;
     const showCurrentAlert = attemptedContinue && pageIncomplete; // after attempted continue, show until all required fields are filled
 
     const addMember = (email: string, role: TeamMember['role'] = 'Contributor') => {
@@ -217,7 +218,7 @@ export default function NewCareerWizard() {
     };
 
     return (
-        <div className="col">
+        <div id="new-career-wizard" className="col">
             <style>{`
                 .nwz-input::placeholder { font-family: 'Satoshi', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; font-weight:500; font-size:16px; color:#717680; }
                 .nwz-inline-salary { display:flex; align-items:center; gap:8px; }
@@ -226,6 +227,23 @@ export default function NewCareerWizard() {
                 .nwz-salary-box span.symbol, .nwz-salary-box span.ccy { font-size:16px; color:#717680; font-weight:500; }
                 .nwz-salary-box input { border:none; outline:none; width:100%; font-size:16px; color:#181D27; padding:0; box-shadow:none; background:transparent; }
                 .nwz-salary-box input::placeholder { font-family:'Satoshi'; font-weight:500; font-size:16px; color:#717680; }
+                /* Force invalid input red border and embedded icon regardless of external styles */
+                .nwz-input[aria-invalid="true"] { border: 1px solid #F04438 !important; padding-right:44px !important; background-image:url('/icons/alert-circle.svg') !important; background-repeat:no-repeat !important; background-position: calc(100% - 12px) center !important; background-size:16px 16px !important; }
+                .nwz-input { border: 1px solid #E9EAEB !important; border-radius: 8px; }
+                .nwz-input:focus { border-color: #E9EAEB !important; box-shadow: none !important; }
+                .nwz-input[aria-invalid="true"]:focus { border-color: #F04438 !important; box-shadow: none !important; }
+                /* Scoped override for Bootstrap-like .form-control (reduce 2px #9c99a4 to 1px #E9EAEB) */
+                #new-career-wizard input.form-control:not([aria-invalid="true"]),
+                #new-career-wizard textarea.form-control:not([aria-invalid="true"]),
+                #new-career-wizard select.form-control:not([aria-invalid="true"]) {
+                    border: 1px solid #E9EAEB !important;
+                }
+                #new-career-wizard input.form-control:focus:not([aria-invalid="true"]),
+                #new-career-wizard textarea.form-control:focus:not([aria-invalid="true"]),
+                #new-career-wizard select.form-control:focus:not([aria-invalid="true"]) {
+                    border-color: #E9EAEB !important;
+                    box-shadow: none !important;
+                }
             `}</style>
             {/* Header row */}
             <div style={{ marginBottom: 24, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -313,7 +331,6 @@ export default function NewCareerWizard() {
                                                 style={{
                                                     padding: "10px 14px",
                                                     paddingRight: isInvalid(jobTitle) ? 44 : 14,
-                                                    border: isInvalid(jobTitle) ? '1px solid #F04438' : '1px solid #D0D5DD',
                                                     backgroundImage: isInvalid(jobTitle) ? 'url(/icons/alert-circle.svg)' : undefined,
                                                     backgroundRepeat: 'no-repeat',
                                                     backgroundPosition: 'calc(100% - 12px) center',
@@ -340,12 +357,20 @@ export default function NewCareerWizard() {
                                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                                         <div>
                                             <div style={{ fontSize: 14, color: "#667085", marginBottom: 6 }}>Employment Type</div>
-                                            <CustomDropdown
-                                                onSelectSetting={(v) => setEmploymentType(v)}
-                                                screeningSetting={employmentType}
-                                                settingList={employmentTypeOptions}
-                                                placeholder="Choose Employment type"
-                                            />
+                                            <div style={{ display:'flex', flexDirection:'column' }}>
+                                                <CustomDropdown
+                                                    onSelectSetting={(v) => setEmploymentType(v)}
+                                                    screeningSetting={employmentType}
+                                                    settingList={employmentTypeOptions}
+                                                    placeholder="Choose Employment type"
+                                                    invalid={attemptedContinue && employmentType.trim().length === 0}
+                                                />
+                                                {attemptedContinue && employmentType.trim().length === 0 && (
+                                                    <div style={{ display:'flex', alignItems:'center', gap:6, marginTop:8 }}>
+                                                        <span style={{ fontSize:12, fontWeight:500, color:'#F04438' }}>This is a required field</span>
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                         <div>
                                             <div style={{ fontSize: 14, color: "#667085", marginBottom: 6 }}>Arrangement</div>
@@ -448,6 +473,11 @@ export default function NewCareerWizard() {
                                                     <img src="/icons/alert-circle.svg" width={16} height={16} alt="error" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)' }} />
                                                 )}
                                             </div>
+                                            {attemptedContinue && (minimumSalary === "" || minimumSalary === null) && (
+                                                <div style={{ display:'flex', alignItems:'center', gap:6, marginTop:8 }}>
+                                                    <span style={{ fontSize:12, fontWeight:500, color:'#F04438' }}>This is a required field</span>
+                                                </div>
+                                            )}
                                         </div>
                                         <div>
                                             <div style={{ fontSize: 14, color: "#667085", marginBottom: 6 }}>Maximum Salary</div>
@@ -459,6 +489,11 @@ export default function NewCareerWizard() {
                                                     <img src="/icons/alert-circle.svg" width={16} height={16} alt="error" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)' }} />
                                                 )}
                                             </div>
+                                            {attemptedContinue && (maximumSalary === "" || maximumSalary === null) && (
+                                                <div style={{ display:'flex', alignItems:'center', gap:6, marginTop:8 }}>
+                                                    <span style={{ fontSize:12, fontWeight:500, color:'#F04438' }}>This is a required field</span>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -472,8 +507,8 @@ export default function NewCareerWizard() {
                             <div style={{ padding: "4px 12px" }}>
                                 <span style={{ fontSize: 16, color: "#181D27", fontWeight: 700 }}>2. Job Description</span>
                             </div>
-                            <div style={{ padding: 24, border: isInvalid(description) ? "1px solid #F04438" : "1px solid #EAECF5", borderRadius: 8, display: 'flex', flexDirection: 'column' }}>
-                                <RichTextEditor text={description} setText={setDescription} />
+                            <div style={{ padding: 24, border: "1px solid #E9EAEB", borderRadius: 8, display: 'flex', flexDirection: 'column' }}>
+                                <RichTextEditor text={description} setText={setDescription} invalid={isInvalid(description)} />
                                 {isInvalid(description) && (
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
                                         <span style={{ fontSize: 12, fontWeight: 500, color: '#F04438' }}>This is a required field</span>
