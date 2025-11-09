@@ -7,7 +7,7 @@ import CustomDropdown from "./CustomDropdown";
 import RichTextEditor from "./RichTextEditor";
 import InterviewQuestionGeneratorV2 from "./InterviewQuestionGeneratorV2";
 import axios from "axios";
-import { candidateActionToast, errorToast } from "@/lib/Utils";
+import { candidateActionToast, errorToast, guid } from "@/lib/Utils";
 
 type TeamMember = { email: string; role: "Job Owner" | "Contributor" | "Reviewer" };
 
@@ -36,6 +36,14 @@ const defaultQuestions = [
     { id: 4, category: "Analytical", questionCountToAsk: null, questions: [] },
     { id: 5, category: "Others", questionCountToAsk: null, questions: [] },
 ];
+
+type PreScreenOption = { id: string; text: string };
+type PreScreenQuestion = {
+    id: string;
+    prompt: string;
+    answerType: "Short Answer" | "Multiple Choice";
+    options?: PreScreenOption[];
+};
 
 export default function NewCareerWizard() {
     const { user, orgID } = useAppContext();
@@ -67,8 +75,9 @@ export default function NewCareerWizard() {
     const [screeningSetting, setScreeningSetting] = useState("Good Fit and Above");
     const [requireVideo, setRequireVideo] = useState(true);
     const [questions, setQuestions] = useState(defaultQuestions);
-    const [preScreeningQuestions, setPreScreeningQuestions] = useState<string[]>([]);
+    const [preScreeningQuestions, setPreScreeningQuestions] = useState<PreScreenQuestion[]>([]);
     const [secretPrompt, setSecretPrompt] = useState("");
+    const secretPromptRef = useRef<HTMLTextAreaElement | null>(null);
     const [salaryNegotiable, setSalaryNegotiable] = useState(true);
     const [minimumSalary, setMinimumSalary] = useState<string | number>("");
     const [maximumSalary, setMaximumSalary] = useState<string | number>("");
@@ -196,6 +205,15 @@ export default function NewCareerWizard() {
                 orgID,
                 requireVideo: true,
                 cvSecretPrompt: secretPrompt || undefined,
+                preScreeningQuestions:
+                    preScreeningQuestions.length > 0
+                        ? preScreeningQuestions.map((q) => ({
+                            id: q.id,
+                            prompt: q.prompt,
+                            answerType: q.answerType,
+                            options: (q.options || []).map((o) => ({ id: o.id, text: o.text })),
+                        }))
+                        : [],
                 salaryNegotiable,
                 minimumSalary: isNaN(Number(minimumSalary)) ? null : Number(minimumSalary),
                 maximumSalary: isNaN(Number(maximumSalary)) ? null : Number(maximumSalary),
@@ -803,11 +821,42 @@ export default function NewCareerWizard() {
                                             Secret Prompts give you extra control over Jia’s evaluation style, complementing her accurate assessment of requirements from the job description.
                                         </div>
                                         <textarea
+                                            ref={secretPromptRef}
                                             value={secretPrompt}
-                                            onChange={(e) => setSecretPrompt(e.target.value)}
+                                            onChange={(e) => {
+                                                let v = e.target.value;
+                                                if (v.length > 0 && !v.startsWith('• ')) {
+                                                    v = '• ' + v;
+                                                }
+                                                setSecretPrompt(v);
+                                            }}
+                                            onKeyDown={(e) => {
+                                                const ta = e.currentTarget as HTMLTextAreaElement;
+                                                if (e.key === 'Enter' && !e.shiftKey) {
+                                                    e.preventDefault();
+                                                    const start = ta.selectionStart ?? 0;
+                                                    const end = ta.selectionEnd ?? start;
+                                                    const before = secretPrompt.slice(0, start);
+                                                    const after = secretPrompt.slice(end);
+                                                    const insert = '\n• ';
+                                                    const next = before + insert + after;
+                                                    setSecretPrompt(next);
+                                                    // place caret after inserted bullet
+                                                    requestAnimationFrame(() => {
+                                                        const t = secretPromptRef.current;
+                                                        if (t) {
+                                                            const pos = start + insert.length;
+                                                            t.selectionStart = pos;
+                                                            t.selectionEnd = pos;
+                                                            t.focus();
+                                                        }
+                                                    });
+                                                }
+                                                // Shift+Enter or natural wrapping: let browser handle default (no extra bullet)
+                                            }}
                                             placeholder="Enter a secret prompt (e.g. Give higher fit scores to candidates who participate in hackathons or competitions.)"
                                             className="form-control nwz-input"
-                                            style={{ padding: '10px 14px', minHeight: 120, resize: 'vertical' }}
+                                            style={{ padding: '10px 14px', minHeight: 120, resize: 'vertical', whiteSpace: 'pre-wrap' }}
                                         />
                                     </div>
                                 </div>
@@ -824,10 +873,15 @@ export default function NewCareerWizard() {
                                             {preScreeningQuestions.length}
                                         </div>
                                     </div>
-                                    <button type="button" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#111827', color: '#fff', border: '1px solid #E9EAEB', padding: '8px 12px', borderRadius: 24, cursor: 'pointer' }}
+                                    <button
+                                        type="button"
+                                        style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#111827', color: '#fff', border: '1px solid #E9EAEB', padding: '8px 12px', borderRadius: 24, cursor: 'pointer' }}
                                         onClick={() => {
-                                            const text = prompt('Add a custom pre-screening question:');
-                                            if (text && text.trim()) setPreScreeningQuestions((q) => [...q, text.trim()]);
+                                            // Add a new blank question and focus it in the editor
+                                            setPreScreeningQuestions((list) => [
+                                                ...list,
+                                                { id: guid(), prompt: '', answerType: 'Short Answer', options: [] },
+                                            ]);
                                         }}
                                     >
                                         <span style={{ fontSize: 18, lineHeight: 1 }}>+</span>
@@ -835,38 +889,166 @@ export default function NewCareerWizard() {
                                     </button>
                                 </div>
 
+                                {/* Suggestions ON TOP of the editor list */}
+                                <div style={{ padding: 16, border: '1px solid #E9EAEB', borderRadius: 8, marginBottom: 12 }}>
+                                    <div style={{ fontSize: 14, fontWeight: 700, color: '#181D27', marginBottom: 8 }}>Suggested Pre-screening Questions:</div>
+                                    {[
+                                        { t: 'Notice Period', s: 'How long is your notice period?', type: 'Multiple Choice' as const },
+                                        { t: 'Work Setup', s: 'How often are you willing to report to the office each week?', type: 'Multiple Choice' as const },
+                                        { t: 'Asking Salary', s: 'How much is your expected monthly salary?', type: 'Short Answer' as const },
+                                    ].map((q) => {
+                                        const already = preScreeningQuestions.some((x) => x.prompt === q.s);
+                                        return (
+                                            <div key={q.t} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0' }}>
+                                                <div>
+                                                    <div style={{ fontSize: 14, fontWeight: 700, color: '#181D27' }}>{q.t}</div>
+                                                    <div style={{ fontSize: 14, fontWeight: 500, color: '#667085' }}>{q.s}</div>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    disabled={already}
+                                                    onClick={() =>
+                                                        setPreScreeningQuestions((list) => [
+                                                            ...list,
+                                                            {
+                                                                id: guid(),
+                                                                prompt: q.s,
+                                                                answerType: q.type,
+                                                                options:
+                                                                    q.type === 'Multiple Choice'
+                                                                        ? [
+                                                                            { id: guid(), text: 'Immediately' },
+                                                                            { id: guid(), text: 'Within 30 days' },
+                                                                            { id: guid(), text: 'More than 30 days' },
+                                                                        ]
+                                                                        : [],
+                                                            },
+                                                        ])
+                                                    }
+                                                    style={{ border: '1px solid #E9EAEB', background: already ? '#F5F5F5' : '#fff', color: '#111827', padding: '6px 12px', borderRadius: 20, cursor: already ? 'not-allowed' : 'pointer', fontWeight: 700, opacity: already ? 0.7 : 1 }}
+                                                >
+                                                    {already ? 'Added' : 'Add'}
+                                                </button>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+
+                                {/* Editor list BELOW suggestions */}
                                 <div style={{ padding: 16, border: "1px solid #E9EAEB", borderRadius: 8 }}>
-                                    {preScreeningQuestions.length === 0 ? (
-                                        <>
-                                            <div style={{ fontSize: 14, fontWeight: 500, color: '#667085', padding: '8px 0' }}>No pre-screening questions added yet.</div>
-                                            <div style={{ width: '100%', height: 1, background: '#E9EAEB', margin: '8px 0 16px' }}></div>
-                                            <div style={{ fontSize: 14, fontWeight: 700, color: '#181D27', marginBottom: 8 }}>Suggested Pre-screening Questions:</div>
-                                            {[{ t: 'Notice Period', s: 'How long is your notice period?' }, { t: 'Work Setup', s: 'How often are you willing to report to the office each week?' }, { t: 'Asking Salary', s: 'How much is your expected monthly salary?' }].map((q) => (
-                                                <div key={q.t} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0' }}>
-                                                    <div>
-                                                        <div style={{ fontSize: 14, fontWeight: 700, color: '#181D27' }}>{q.t}</div>
-                                                        <div style={{ fontSize: 14, fontWeight: 500, color: '#667085' }}>{q.s}</div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                        {preScreeningQuestions.length === 0 && (
+                                            <div style={{ fontSize: 14, fontWeight: 500, color: '#667085' }}>No pre-screening questions added yet.</div>
+                                        )}
+
+                                        {preScreeningQuestions.map((q, idx) => (
+                                            <div key={q.id} style={{ border: '1px solid #E9EAEB', borderRadius: 8, padding: 12, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                                                    <div style={{ flex: 1 }}>
+                                                        <input
+                                                            className="form-control nwz-input"
+                                                            placeholder={`Question ${idx + 1}`}
+                                                            value={q.prompt}
+                                                            onChange={(e) =>
+                                                                setPreScreeningQuestions((list) =>
+                                                                    list.map((it) => (it.id === q.id ? { ...it, prompt: e.target.value } : it))
+                                                                )
+                                                            }
+                                                            style={{ padding: '10px 14px' }}
+                                                        />
                                                     </div>
-                                                    <button type="button" onClick={() => setPreScreeningQuestions((list) => [...list, q.s])} style={{ border: '1px solid #E9EAEB', background: '#fff', color: '#111827', padding: '6px 12px', borderRadius: 20, cursor: 'pointer', fontWeight: 700 }}>Add</button>
-                                                </div>
-                                            ))}
-                                        </>
-                                    ) : (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                            {preScreeningQuestions.map((q, idx) => (
-                                                <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', border: '1px solid #E9EAEB', borderRadius: 8 }}>
-                                                    <span style={{ fontSize: 14, fontWeight: 500, color: '#181D27' }}>{q}</span>
-                                                    <div style={{ display: 'flex', gap: 8 }}>
-                                                        <button type="button" title="Edit" onClick={() => {
-                                                            const updated = prompt('Edit question:', q);
-                                                            if (updated && updated.trim()) setPreScreeningQuestions((list) => list.map((it, i) => i === idx ? updated.trim() : it));
-                                                        }} style={{ border: '1px solid #E9EAEB', background: '#fff', padding: '6px 10px', borderRadius: 8, cursor: 'pointer' }}>Edit</button>
-                                                        <button type="button" title="Remove" onClick={() => setPreScreeningQuestions((list) => list.filter((_, i) => i !== idx))} style={{ border: '1px solid #E9EAEB', background: '#fff', padding: '6px 10px', borderRadius: 8, cursor: 'pointer' }}>Remove</button>
+                                                    <div style={{ minWidth: 220 }}>
+                                                        <CustomDropdown
+                                                            onSelectSetting={(v) =>
+                                                                setPreScreeningQuestions((list) =>
+                                                                    list.map((it) =>
+                                                                        it.id === q.id
+                                                                            ? {
+                                                                                ...it,
+                                                                                answerType: (v as any) as PreScreenQuestion['answerType'],
+                                                                            }
+                                                                            : it
+                                                                    )
+                                                                )
+                                                            }
+                                                            screeningSetting={q.answerType}
+                                                            settingList={[{ name: 'Short Answer' }, { name: 'Multiple Choice' }]}
+                                                            placeholder="Answer type"
+                                                        />
                                                     </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setPreScreeningQuestions((list) => list.filter((it) => it.id !== q.id))}
+                                                        style={{ width: 40, height: 40, borderRadius: '50%', border: '1px solid #E9EAEB', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                                                        title="Remove question"
+                                                    >
+                                                        <img src="/icons/trash-2.svg" alt="remove" width={20} height={20} />
+                                                    </button>
                                                 </div>
-                                            ))}
-                                        </div>
-                                    )}
+
+                                                {q.answerType === 'Multiple Choice' && (
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                                        {(q.options || []).map((opt, oidx) => (
+                                                            <div key={opt.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                                <div style={{ width: 24, textAlign: 'right', color: '#717680', fontWeight: 600 }}>{oidx + 1}.</div>
+                                                                <input
+                                                                    className="form-control nwz-input"
+                                                                    placeholder={`Option ${oidx + 1}`}
+                                                                    value={opt.text}
+                                                                    onChange={(e) =>
+                                                                        setPreScreeningQuestions((list) =>
+                                                                            list.map((it) =>
+                                                                                it.id === q.id
+                                                                                    ? {
+                                                                                        ...it,
+                                                                                        options: (it.options || []).map((o) => (o.id === opt.id ? { ...o, text: e.target.value } : o)),
+                                                                                    }
+                                                                                    : it
+                                                                            )
+                                                                        )
+                                                                    }
+                                                                    style={{ padding: '10px 14px', flex: 1 }}
+                                                                />
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() =>
+                                                                        setPreScreeningQuestions((list) =>
+                                                                            list.map((it) =>
+                                                                                it.id === q.id
+                                                                                    ? { ...it, options: (it.options || []).filter((o) => o.id !== opt.id) }
+                                                                                    : it
+                                                                            )
+                                                                        )
+                                                                    }
+                                                                    style={{ width: 36, height: 36, borderRadius: 8, border: '1px solid #E9EAEB', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                                                                    title="Remove option"
+                                                                >
+                                                                    <img src="/icons/x.svg" width={16} height={16} />
+                                                                </button>
+                                                            </div>
+                                                        ))}
+                                                        <div>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() =>
+                                                                    setPreScreeningQuestions((list) =>
+                                                                        list.map((it) =>
+                                                                            it.id === q.id
+                                                                                ? { ...it, options: [...(it.options || []), { id: guid(), text: '' }] }
+                                                                                : it
+                                                                        )
+                                                                    )
+                                                                }
+                                                                style={{ display: 'inline-flex', alignItems: 'center', gap: 8, border: '1px solid #E9EAEB', background: '#fff', color: '#111827', padding: '6px 12px', borderRadius: 20, cursor: 'pointer', fontWeight: 700 }}
+                                                            >
+                                                                <span style={{ fontSize: 18, lineHeight: 1 }}>+</span> Add option
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
                         </div>
