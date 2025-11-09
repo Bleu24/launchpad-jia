@@ -310,20 +310,26 @@ export default function NewCareerWizard() {
                                         <div style={{ position: 'relative', display: 'flex', flexDirection: 'column' }}>
                                             <input
                                                 className="form-control nwz-input"
-                                                style={{ padding: "10px 14px", border: isInvalid(jobTitle) ? '1px solid #FDA29B' : undefined }}
+                                                style={{
+                                                    padding: "10px 14px",
+                                                    paddingRight: isInvalid(jobTitle) ? 44 : 14,
+                                                    border: isInvalid(jobTitle) ? '1px solid #F04438' : '1px solid #D0D5DD',
+                                                    backgroundImage: isInvalid(jobTitle) ? 'url(/icons/alert-circle.svg)' : undefined,
+                                                    backgroundRepeat: 'no-repeat',
+                                                    backgroundPosition: 'calc(100% - 12px) center',
+                                                    backgroundSize: '16px 16px'
+                                                }}
                                                 placeholder="Enter job title"
                                                 value={jobTitle}
+                                                aria-invalid={isInvalid(jobTitle) || undefined}
                                                 onChange={(e) => setJobTitle(e.target.value)}
                                             />
                                             {isInvalid(jobTitle) && (
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
-                                                    <img src="/icons/alert-circle.svg" width={16} height={16} alt="required" />
                                                     <span style={{ fontSize: 12, fontWeight: 500, color: '#F04438' }}>This is a required field</span>
                                                 </div>
                                             )}
-                                            {isInvalid(jobTitle) && (
-                                                <img src="/icons/alert-circle.svg" width={13.33} height={13.33} alt="error" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)' }} />
-                                            )}
+
                                         </div>
                                     </div>
                                 </div>
@@ -434,7 +440,7 @@ export default function NewCareerWizard() {
                                     <div className="nwz-salary-wrapper">
                                         <div>
                                             <div style={{ fontSize: 14, color: "#667085", marginBottom: 6 }}>Minimum Salary</div>
-                                            <div className="nwz-salary-box" style={{ position: 'relative', border: (attemptedContinue && (minimumSalary === "" || minimumSalary === null)) ? '1px solid #FDA29B' : undefined }}>
+                                            <div className="nwz-salary-box" style={{ position: 'relative', border: (attemptedContinue && (minimumSalary === "" || minimumSalary === null)) ? '1px solid #F04438' : undefined }}>
                                                 <span className="symbol">₱</span>
                                                 <input type="number" placeholder="0" min={0} value={minimumSalary as any} onChange={(e) => setMinimumSalary(e.target.value || "")} />
                                                 <span className="ccy" style={{ marginRight: (attemptedContinue && (minimumSalary === "" || minimumSalary === null)) ? 24 : 0 }}>PHP</span>
@@ -445,7 +451,7 @@ export default function NewCareerWizard() {
                                         </div>
                                         <div>
                                             <div style={{ fontSize: 14, color: "#667085", marginBottom: 6 }}>Maximum Salary</div>
-                                            <div className="nwz-salary-box" style={{ position: 'relative', border: (attemptedContinue && (maximumSalary === "" || maximumSalary === null)) ? '1px solid #FDA29B' : undefined }}>
+                                            <div className="nwz-salary-box" style={{ position: 'relative', border: (attemptedContinue && (maximumSalary === "" || maximumSalary === null)) ? '1px solid #F04438' : undefined }}>
                                                 <span className="symbol">₱</span>
                                                 <input type="number" placeholder="0" min={0} value={maximumSalary as any} onChange={(e) => setMaximumSalary(e.target.value || "")} />
                                                 <span className="ccy" style={{ marginRight: (attemptedContinue && (maximumSalary === "" || maximumSalary === null)) ? 24 : 0 }}>PHP</span>
@@ -466,7 +472,7 @@ export default function NewCareerWizard() {
                             <div style={{ padding: "4px 12px" }}>
                                 <span style={{ fontSize: 16, color: "#181D27", fontWeight: 700 }}>2. Job Description</span>
                             </div>
-                            <div style={{ padding: 24, border: isInvalid(description) ? "1px solid #FDA29B" : "1px solid #EAECF5", borderRadius: 8, display: 'flex', flexDirection: 'column' }}>
+                            <div style={{ padding: 24, border: isInvalid(description) ? "1px solid #F04438" : "1px solid #EAECF5", borderRadius: 8, display: 'flex', flexDirection: 'column' }}>
                                 <RichTextEditor text={description} setText={setDescription} />
                                 {isInvalid(description) && (
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
