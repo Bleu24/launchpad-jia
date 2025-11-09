@@ -32,8 +32,13 @@ const defaultQuestions = [
 
 export default function NewCareerWizard() {
     const { user, orgID } = useAppContext();
-    const StepIcon = () => (
-        <img src="/icons/alert-triangle.svg" alt="step" width={20} height={20} />
+    const StepIcon = ({ active }: { active: boolean }) => (
+        <svg width="17" height="17" viewBox="0 0 17 17" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path
+                d="M8.33333 0C3.74167 0 0 3.74167 0 8.33333C0 12.925 3.74167 16.6667 8.33333 16.6667C12.925 16.6667 16.6667 12.925 16.6667 8.33333C16.6667 3.74167 12.925 0 8.33333 0ZM8.33333 15C4.65833 15 1.66667 12.0083 1.66667 8.33333C1.66667 4.65833 4.65833 1.66667 8.33333 1.66667C12.0083 1.66667 15 4.65833 15 8.33333C15 12.0083 12.0083 15 8.33333 15ZM10.8333 8.33333C10.8333 9.71667 9.71667 10.8333 8.33333 10.8333C6.95 10.8333 5.83333 9.71667 5.83333 8.33333C5.83333 6.95 6.95 5.83333 8.33333 5.83333C9.71667 5.83333 10.8333 6.95 10.8333 8.33333Z"
+                fill={active ? "#111827" : "#ADB5BD"}
+            />
+        </svg>
     );
 
     // Step control
@@ -120,6 +125,14 @@ export default function NewCareerWizard() {
     }, [jobTitle, description, workSetup, province, city]);
 
     const isInvalid = (val: string) => attemptedContinue && val.trim().length === 0;
+
+    // Step 1 completeness for stepper icon
+    const fieldsFilledCount = useMemo(() => {
+        const values = [jobTitle, description, workSetup, province, city];
+        return values.filter((v) => v && v.trim().length > 0).length;
+    }, [jobTitle, description, workSetup, province, city]);
+    const pageIncomplete = fieldsFilledCount < 5;
+    const showCurrentAlert = attemptedContinue && pageIncomplete; // after attempted continue, show until all required fields are filled
 
     const addMember = (email: string, role: TeamMember['role'] = 'Contributor') => {
         if (!email) return;
@@ -256,7 +269,11 @@ export default function NewCareerWizard() {
                             {/* progress container */}
                             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                 <div style={{ width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                                    <StepIcon />
+                                    {idx === currentStep && showCurrentAlert ? (
+                                        <img src="/icons/alert-triangle.svg" alt="step-alert" width={20} height={20} />
+                                    ) : (
+                                        <StepIcon active={isActive} />
+                                    )}
                                 </div>
                                 <div style={{ flex: 1, height: 2, background: lineColor }} />
                             </div>
@@ -305,7 +322,7 @@ export default function NewCareerWizard() {
                                                 </div>
                                             )}
                                             {isInvalid(jobTitle) && (
-                                                <img src="/icons/alert-circle.svg" width={16} height={16} alt="error" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)' }} />
+                                                <img src="/icons/alert-circle.svg" width={13.33} height={13.33} alt="error" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)' }} />
                                             )}
                                         </div>
                                     </div>
@@ -417,18 +434,24 @@ export default function NewCareerWizard() {
                                     <div className="nwz-salary-wrapper">
                                         <div>
                                             <div style={{ fontSize: 14, color: "#667085", marginBottom: 6 }}>Minimum Salary</div>
-                                            <div className="nwz-salary-box">
+                                            <div className="nwz-salary-box" style={{ position: 'relative', border: (attemptedContinue && (minimumSalary === "" || minimumSalary === null)) ? '1px solid #FDA29B' : undefined }}>
                                                 <span className="symbol">₱</span>
                                                 <input type="number" placeholder="0" min={0} value={minimumSalary as any} onChange={(e) => setMinimumSalary(e.target.value || "")} />
-                                                <span className="ccy">PHP</span>
+                                                <span className="ccy" style={{ marginRight: (attemptedContinue && (minimumSalary === "" || minimumSalary === null)) ? 24 : 0 }}>PHP</span>
+                                                {(attemptedContinue && (minimumSalary === "" || minimumSalary === null)) && (
+                                                    <img src="/icons/alert-circle.svg" width={16} height={16} alt="error" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)' }} />
+                                                )}
                                             </div>
                                         </div>
                                         <div>
                                             <div style={{ fontSize: 14, color: "#667085", marginBottom: 6 }}>Maximum Salary</div>
-                                            <div className="nwz-salary-box">
+                                            <div className="nwz-salary-box" style={{ position: 'relative', border: (attemptedContinue && (maximumSalary === "" || maximumSalary === null)) ? '1px solid #FDA29B' : undefined }}>
                                                 <span className="symbol">₱</span>
                                                 <input type="number" placeholder="0" min={0} value={maximumSalary as any} onChange={(e) => setMaximumSalary(e.target.value || "")} />
-                                                <span className="ccy">PHP</span>
+                                                <span className="ccy" style={{ marginRight: (attemptedContinue && (maximumSalary === "" || maximumSalary === null)) ? 24 : 0 }}>PHP</span>
+                                                {(attemptedContinue && (maximumSalary === "" || maximumSalary === null)) && (
+                                                    <img src="/icons/alert-circle.svg" width={16} height={16} alt="error" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)' }} />
+                                                )}
                                             </div>
                                         </div>
                                     </div>
