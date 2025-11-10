@@ -37,54 +37,63 @@ export default function CustomDropdown(props) {
         <i className="la la-angle-down ml-10"></i>
       </button>
       <div
-        className={`dropdown-menu w-100 mt-1 org-dropdown-anim${dropdownOpen ? " show" : ""
-          }`}
+        className={`dropdown-menu w-100 mt-1 org-dropdown-anim${dropdownOpen ? " show" : ""}`}
         style={{
-          padding: "10px",
-          maxHeight: 200,
-          overflowY: "auto",
+          padding: 10,
+          maxHeight: variant === 'preScreening' ? 'none' : 200,
+          overflowY: variant === 'preScreening' ? 'visible' : 'auto',
+          background: '#fff',
+          border: '1px solid #E9EAEB',
+          borderRadius: 12,
+          boxShadow: '0 4px 8px rgba(0,0,0,0.04), 0 2px 4px rgba(0,0,0,0.03)',
+          overflow: 'hidden' // <-- clip child hover backgrounds
         }}
       >
         {settingList.map((setting, index) => {
           const selected = setting.name === screeningSetting;
           const isNone = setting.name === 'No Automatic Promotion';
           return (
-            <div style={{ borderBottom: "1px solid #F2F4F7" }} key={index}>
+            <div key={index} style={{}}>
               <button
-                className="dropdown-item d-flex align-items-center"
+                // Removed bootstrap dropdown-item class to avoid its hover
+                className="nwz-dd-item"
                 style={{
                   width: '100%',
-                  minWidth: 220,
-                  borderRadius: 6,
-                  overflow: 'hidden',
-                  padding: '10px 12px',
-                  color: '#181D27',
-                  fontWeight: selected ? 700 : 500,
+                  border: 'none',
                   background: selected ? '#F8F9FC' : 'transparent',
+                  borderRadius: 8,
+                  padding: '10px 12px',
                   display: 'flex',
-                  flexDirection: 'row',
-                  justifyContent: 'space-between',
                   alignItems: 'center',
-                  textTransform: 'none'
+                  justifyContent: 'space-between',
+                  cursor: 'pointer',
+                  fontWeight: selected ? 700 : 500,
+                  color: selected ? '#181D27' : '#181D27'
+                }}
+                onMouseEnter={(e) => {
+                  if (!selected) e.currentTarget.style.background = '#F3F0FF'; // subtle hover
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = selected ? '#F8F9FC' : 'transparent';
                 }}
                 onClick={() => { onSelectSetting(setting.name); setDropdownOpen(false); }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   {variant === 'screening' && (
                     <>
-                      {setting.name === 'Good Fit and Above' && <img src="/icons/checkV5.svg" alt="single check" width={20} height={12} style={{ opacity: selected ? 1 : 0.35 }} />}
-                      {setting.name === 'Only Strong Fit' && <img src="/icons/doublecheck.svg" alt="double check" width={20} height={12} style={{ opacity: selected ? 1 : 0.35 }} />}
-                      {setting.name === 'No Automatic Promotion' && <img src="/icons/x.svg" alt="no auto" width={16} height={16} style={{ opacity: 0.6 }} />}
+                      {setting.name === 'Good Fit and Above' && <img src="/icons/checkV5.svg" width={20} height={12} />}
+                      {setting.name === 'Only Strong Fit' && <img src="/icons/doublecheck.svg" width={20} height={12} style={{ opacity: selected ? 1 : 0.35 }} />}
+                      {setting.name === 'No Automatic Promotion' && <img src="/icons/x.svg" width={16} height={16} style={{ opacity: 0.6 }} />}
                     </>
                   )}
                   {variant === 'preScreening' && setting.icon && (
-                    <img src={setting.icon} alt="" width={16} height={16} />
+                    <img src={setting.icon} width={16} height={16} />
                   )}
-                  <span style={{ fontSize: 14 }}>{setting.name.replace('_', ' ')}</span>
+                  <span style={{ fontSize: 14 }}>{setting.name}</span>
                 </div>
-                {selected && variant === 'screening' && (
+                {selected && (variant === 'screening' || variant === 'preScreening') && (
                   <svg width="16" height="12" viewBox="0 0 16 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M14.5 1.5l-8 9-5-5" stroke="#6172F3" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M14.5 1.5l-8 9-5-5" stroke="#6172F3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 )}
               </button>
