@@ -30,7 +30,14 @@ export async function GET(req: Request) {
         if (sortConfig) {
             const config = JSON.parse(sortConfig);
             const key = config.key;
-            defaultSort = { [key]: config.direction === "ascending" ? 1 : -1, _id: -1 };
+
+            // Special handling for employmentType sorting with custom order
+            if (key === "employmentType") {
+                // We'll handle this in the aggregation pipeline with $addFields
+                defaultSort = { employmentTypeOrder: config.direction === "ascending" ? 1 : -1, _id: -1 };
+            } else {
+                defaultSort = { [key]: config.direction === "ascending" ? 1 : -1, _id: -1 };
+            }
         }
 
         if (status && status !== "All Statuses") {
@@ -38,88 +45,107 @@ export async function GET(req: Request) {
         }
 
         const careers = await db
-        .collection("careers")
-        .aggregate([
-            { $match: filter },
-            { 
-                $lookup: {
-                    from: "interviews",
-                    localField: "id",
-                    foreignField: "id",
-                    as: "interviews"
-                }
-            },
-            { $unwind: { path: "$interviews", preserveNullAndEmptyArrays: true } },
-            { 
-                $match: {
-                    "interviews.currentStep": { $ne: "Applied" }
+            .collection("careers")
+            .aggregate([
+                { $match: filter },
+                {
+                    $lookup: {
+                        from: "interviews",
+                        localField: "id",
+                        foreignField: "id",
+                        as: "interviews"
+                    }
                 },
-            },
-            { 
-                $group: {
-                    _id: "$_id",
-                    jobTitle: { $first: "$jobTitle" },
-                    status: { $first: "$status" },
-                    createdAt: { $first: "$createdAt" },
-                    lastActivityAt: { $first: "$lastActivityAt" },
-                    orgID: { $first: "$orgID" },
-                    interviewsInProgress: {
-                        $sum: {
-                            $cond: {
-                                if: {
-                                    $and: [
-                                    {
-                                        $or: [
-                                            { $eq: ["$interviews.applicationStatus", "Ongoing"] },
-                                            { $eq: ["$interviews.applicationStatus", null] },
-                                            { $eq: [{ $type: "$interviews.applicationStatus" }, "missing"] }
-                                        ],
+                { $unwind: { path: "$interviews", preserveNullAndEmptyArrays: true } },
+                {
+                    $match: {
+                        "interviews.currentStep": { $ne: "Applied" }
+                    },
+                },
+                {
+                    $group: {
+                        _id: "$_id",
+                        jobTitle: { $first: "$jobTitle" },
+                        status: { $first: "$status" },
+                        createdAt: { $first: "$createdAt" },
+                        lastActivityAt: { $first: "$lastActivityAt" },
+                        orgID: { $first: "$orgID" },
+                        employmentType: { $first: "$employmentType" },
+                        interviewsInProgress: {
+                            $sum: {
+                                $cond: {
+                                    if: {
+                                        $and: [
+                                            {
+                                                $or: [
+                                                    { $eq: ["$interviews.applicationStatus", "Ongoing"] },
+                                                    { $eq: ["$interviews.applicationStatus", null] },
+                                                    { $eq: [{ $type: "$interviews.applicationStatus" }, "missing"] }
+                                                ],
+                                            },
+                                            {
+                                                $and: [
+                                                    { $ne: ["$interviews.createdAt", null] },
+                                                    { $ne: [{ $type: "$interviews.createdAt" }, "missing"] }
+                                                ]
+                                            }
+                                        ]
                                     },
-                                    { $and: [
-                                        { $ne: ["$interviews.createdAt", null] },
-                                        { $ne: [{ $type: "$interviews.createdAt" }, "missing"] }
-                                    ] }
-                                    ]
-                                },
-                                then: 1,
-                                else: 0
+                                    then: 1,
+                                    else: 0
+                                }
                             }
-                        }
-                    },
-                    dropped: {
-                        $sum: {
-                            $cond: {
-                                if: {
-                                    $or: [
-                                        { $eq: ["$interviews.applicationStatus", "Dropped"] },
-                                        { $eq: ["$interviews.applicationStatus", "Cancelled"] }
-                                    ]
-                                },
-                                then: 1,
-                                else: 0
+                        },
+                        dropped: {
+                            $sum: {
+                                $cond: {
+                                    if: {
+                                        $or: [
+                                            { $eq: ["$interviews.applicationStatus", "Dropped"] },
+                                            { $eq: ["$interviews.applicationStatus", "Cancelled"] }
+                                        ]
+                                    },
+                                    then: 1,
+                                    else: 0
+                                }
                             }
-                        }
-                    },
-                    hired: {
-                        $sum: {
-                            $cond: {
-                                if: { $eq: ["$interviews.applicationStatus", "Hired"] },
-                                then: 1,
-                                else: 0
+                        },
+                        hired: {
+                            $sum: {
+                                $cond: {
+                                    if: { $eq: ["$interviews.applicationStatus", "Hired"] },
+                                    then: 1,
+                                    else: 0
+                                }
                             }
                         }
                     }
-                }
-            },
-            { $sort: defaultSort },
-            { $skip: (page - 1) * limit },
-            { $limit: limit },
-            { 
-                $project: {
-                    questions: 0,
-                }
-            },
-        ]).toArray();
+                },
+                {
+                    $addFields: {
+                        // Add custom sort order for employmentType: Contract=1, Full-Time=2, Part-Time=3
+                        employmentTypeOrder: {
+                            $switch: {
+                                branches: [
+                                    { case: { $eq: ["$employmentType", "Contract"] }, then: 1 },
+                                    { case: { $eq: ["$employmentType", "Full-Time"] }, then: 2 },
+                                    { case: { $eq: ["$employmentType", "Part-Time"] }, then: 3 }
+                                ],
+                                default: 4
+                            }
+                        }
+                    }
+                },
+                { $sort: defaultSort },
+                { $skip: (page - 1) * limit },
+                { $limit: limit },
+                {
+                    $project: {
+                        questions: 0,
+                        employmentTypeOrder: 0,
+                    }
+                },
+            ]).toArray();
 
         // TODO: Improve this query by moving to Redis or a count table
         const total = await db.collection("careers").countDocuments(filter);
