@@ -29,10 +29,23 @@ const screeningOptions = [
     { name: "No Automatic Promotion" },
 ];
 
+// AI Interview Setup option scaffolds
+const aiLanguageOptions = [
+    { name: 'English' },
+    { name: 'Tagalog' },
+    { name: 'Spanish' },
+];
+const aiVoiceOptions = [
+    { name: 'Neutral Female' },
+    { name: 'Neutral Male' },
+    { name: 'Energetic Female' },
+];
+const evaluationFocusPresets = ['Communication', 'Technical Depth', 'Problem Solving', 'Culture Fit'];
+
 const preScreeningOptions = [
     { icon: '/icons/user2.svg', name: 'Short Answer' },
     { icon: '/icons/longans.svg', name: 'Long Answer' },
-    { icon: '/icons/user2.svg', name: 'Dropdown' },
+    { icon: '/icons/circledrop.svg', name: 'Dropdown' },
     { icon: '/icons/user2.svg', name: 'Checkboxes' },
     { icon: '/icons/number.svg', name: 'Range' }
 ];
@@ -51,6 +64,7 @@ type PreScreenQuestion = {
     prompt: string;
     answerType: "Short Answer" | "Long Answer" | "Dropdown" | "Checkboxes" | "Range";
     options?: PreScreenOption[];
+    currency?: string; // e.g., 'PHP', 'USD' for Range types
 };
 
 export default function NewCareerWizard() {
@@ -94,6 +108,17 @@ export default function NewCareerWizard() {
     const [city, setCity] = useState("");
     const [provinceList, setProvinceList] = useState<any[]>([]);
     const [cityList, setCityList] = useState<any[]>([]);
+    // AI Interview Setup state (Step 2)
+    const [aiLanguage, setAiLanguage] = useState('English');
+    const [aiVoice, setAiVoice] = useState('Neutral Female');
+    const [interviewDuration, setInterviewDuration] = useState<number | ''>(30); // minutes
+    const [aiIntroMessage, setAiIntroMessage] = useState('');
+    const [aiEvaluationFocus, setAiEvaluationFocus] = useState<string[]>([]);
+    const [aiAdditionalNotes, setAiAdditionalNotes] = useState('');
+
+    const toggleFocus = (tag: string) => {
+        setAiEvaluationFocus(list => list.includes(tag) ? list.filter(t => t !== tag) : [...list, tag]);
+    };
 
     // Team access (visual only for now)
     const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
@@ -291,6 +316,20 @@ export default function NewCareerWizard() {
                 #new-career-wizard textarea.form-control:focus:not([aria-invalid="true"]),
                 #new-career-wizard select.form-control:focus:not([aria-invalid="true"]) {
                     border-color: #E9EAEB !important;
+                    box-shadow: none !important;
+                }
+                /* Remove borders for inputs inside the Pre-Screening section only */
+                #new-career-wizard .pre-screening-block input.form-control,
+                #new-career-wizard .pre-screening-block textarea.form-control,
+                #new-career-wizard .pre-screening-block select.form-control,
+                #new-career-wizard .pre-screening-block .nwz-input {
+                    border: none !important;
+                    box-shadow: none !important;
+                }
+                #new-career-wizard .pre-screening-block input.form-control:focus,
+                #new-career-wizard .pre-screening-block textarea.form-control:focus,
+                #new-career-wizard .pre-screening-block select.form-control:focus {
+                    border: none !important;
                     box-shadow: none !important;
                 }
             `}</style>
@@ -910,273 +949,301 @@ export default function NewCareerWizard() {
                                         )}
 
                                         {preScreeningQuestions.map((q, idx) => (
-                                            <div key={q.id} style={{ border: '1px solid #E9EAEB', borderRadius: 8, padding: 12, display: 'flex', flexDirection: 'column', gap: 12 }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                                                    <div style={{ flex: 1 }}>
-                                                        <input
-                                                            className="form-control nwz-input"
-                                                            placeholder={`Question ${idx + 1}`}
-                                                            value={q.prompt}
-                                                            onChange={(e) =>
-                                                                setPreScreeningQuestions((list) =>
-                                                                    list.map((it) => (it.id === q.id ? { ...it, prompt: e.target.value } : it))
-                                                                )
-                                                            }
-                                                            style={{ padding: '10px 14px' }}
-                                                        />
+                                            <div key={q.id} style={{ border: '1px solid #E9EAEB', borderRadius: 8, padding: 12 }}>
+                                                <div style={{ display: 'flex', gap: 12 }}>
+                                                    <div title="Drag Indicator" style={{ width: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'grab' }}>
+                                                        <img src="/icons/drag.svg" alt="drag" width={16} height={16} />
                                                     </div>
-                                                    <div style={{ minWidth: 220 }}>
-                                                        <CustomDropdown
-                                                            variant="preScreening"
-                                                            onSelectSetting={(v) =>
-                                                                setPreScreeningQuestions((list) =>
-                                                                    list.map((it) =>
-                                                                        it.id === q.id
-                                                                            ? {
-                                                                                ...it,
-                                                                                answerType: (v as any) as PreScreenQuestion['answerType'],
+                                                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: '24px' }}>
+                                                            <div style={{ flex: 1 }}>
+                                                                <input
+                                                                    className="form-control nwz-input"
+                                                                    placeholder={`Question ${idx + 1}`}
+                                                                    value={q.prompt}
+                                                                    onChange={(e) =>
+                                                                        setPreScreeningQuestions((list) =>
+                                                                            list.map((it) => (it.id === q.id ? { ...it, prompt: e.target.value } : it))
+                                                                        )
+                                                                    }
+                                                                    style={{ padding: '10px 14px' }}
+                                                                />
+                                                            </div>
+                                                            <div style={{ minWidth: 220 }}>
+                                                                <CustomDropdown
+                                                                    variant="preScreening"
+                                                                    onSelectSetting={(v) =>
+                                                                        setPreScreeningQuestions((list) =>
+                                                                            list.map((it) =>
+                                                                                it.id === q.id
+                                                                                    ? {
+                                                                                        ...it,
+                                                                                        answerType: (v as any) as PreScreenQuestion['answerType'],
+                                                                                    }
+                                                                                    : it
+                                                                            )
+                                                                        )
+                                                                    }
+                                                                    screeningSetting={q.answerType}
+                                                                    settingList={preScreeningOptions}
+                                                                    placeholder="Answer type"
+                                                                />
+                                                            </div>
+                                                        </div>
+
+                                                        {q.answerType === 'Dropdown' && (
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                                                {(q.options || []).map((opt, oidx) => (
+                                                                    <div key={opt.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                                        <div style={{ width: 24, textAlign: 'right', color: '#717680', fontWeight: 600 }}>{oidx + 1}</div>
+                                                                        <input
+                                                                            className="form-control nwz-input"
+                                                                            placeholder={`Option ${oidx + 1}`}
+                                                                            value={opt.text}
+                                                                            onChange={(e) =>
+                                                                                setPreScreeningQuestions((list) =>
+                                                                                    list.map((it) =>
+                                                                                        it.id === q.id
+                                                                                            ? {
+                                                                                                ...it,
+                                                                                                options: (it.options || []).map((o) => (o.id === opt.id ? { ...o, text: e.target.value } : o)),
+                                                                                            }
+                                                                                            : it
+                                                                                    )
+                                                                                )
                                                                             }
-                                                                            : it
-                                                                    )
-                                                                )
-                                                            }
-                                                            screeningSetting={q.answerType}
-                                                            settingList={preScreeningOptions}
-                                                            placeholder="Answer type"
-                                                        />
+                                                                            style={{ padding: '10px 14px', flex: 1 }}
+                                                                        />
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() =>
+                                                                                setPreScreeningQuestions((list) =>
+                                                                                    list.map((it) =>
+                                                                                        it.id === q.id
+                                                                                            ? { ...it, options: (it.options || []).filter((o) => o.id !== opt.id) }
+                                                                                            : it
+                                                                                    )
+                                                                                )
+                                                                            }
+                                                                            style={{ width: 36, height: 36, borderRadius: 24, border: '1px solid #E9EAEB', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                                                                            title="Remove option"
+                                                                        >
+                                                                            <svg width="16" height="16" viewBox="0 0 24 25" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ stroke: '#535862', strokeWidth: '2' }}>
+                                                                                <path d="M18 6.66504L6 18.665M6 6.66504L18 18.665" stroke-linecap="round" stroke-linejoin="round" />
+                                                                            </svg>
+                                                                        </button>
+                                                                    </div>
+                                                                ))}
+                                                                <div style={{ padding: "0 16px" }}>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() =>
+                                                                            setPreScreeningQuestions((list) =>
+                                                                                list.map((it) =>
+                                                                                    it.id === q.id
+                                                                                        ? { ...it, options: [...(it.options || []), { id: guid(), text: '' }] }
+                                                                                        : it
+                                                                                )
+                                                                            )
+                                                                        }
+                                                                        style={{ display: 'inline-flex', alignItems: 'center', gap: 8, border: 'none', background: '#fff', color: '#535862', padding: '8px 14px', cursor: 'pointer', fontWeight: 700 }}
+                                                                    >
+                                                                        <span style={{ fontSize: 18, lineHeight: 1 }}>+</span> Add Option
+                                                                    </button>
+                                                                </div>
+
+                                                                {/* Divider */}
+                                                                <div style={{ width: "100%", height: 1, background: "#E9EAEB" }}></div>
+
+                                                                <div style={{ display: "flex", justifyContent: "end" }}>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => setPreScreeningQuestions((list) => list.filter((it) => it.id !== q.id))}
+                                                                        style={{ borderRadius: '24px', border: '1px solid #FDA29B', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', gap: 8, padding: '8px 14px', margin: '24px 0' }}
+                                                                        title="Remove question"
+                                                                    >
+                                                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ stroke: '#B32318', strokeWidth: '1.5' }}>
+                                                                            <path d="M3 6h18" stroke-linecap="round" />
+                                                                            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" stroke-linecap="round" />
+                                                                            <path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" stroke-linecap="round" />
+                                                                            <path d="M10 11v6M14 11v6" stroke-linecap="round" />
+                                                                        </svg>
+                                                                        <span style={{ color: "#B32318", fontWeight: 700, textWrap: 'nowrap' }}>Delete Question</span>
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                        {q.answerType === 'Checkboxes' && (
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                                                {(q.options || []).map((opt, oidx) => (
+                                                                    <div key={opt.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                                        <div style={{ width: 24, textAlign: 'right', color: '#717680', fontWeight: 600 }}>{oidx + 1}.</div>
+                                                                        <input
+                                                                            className="form-control nwz-input"
+                                                                            placeholder={`Option ${oidx + 1}`}
+                                                                            value={opt.text}
+                                                                            onChange={(e) =>
+                                                                                setPreScreeningQuestions((list) =>
+                                                                                    list.map((it) =>
+                                                                                        it.id === q.id
+                                                                                            ? {
+                                                                                                ...it,
+                                                                                                options: (it.options || []).map((o) => (o.id === opt.id ? { ...o, text: e.target.value } : o)),
+                                                                                            }
+                                                                                            : it
+                                                                                    )
+                                                                                )
+                                                                            }
+                                                                            style={{ padding: '10px 14px', flex: 1 }}
+                                                                        />
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() =>
+                                                                                setPreScreeningQuestions((list) =>
+                                                                                    list.map((it) =>
+                                                                                        it.id === q.id
+                                                                                            ? { ...it, options: (it.options || []).filter((o) => o.id !== opt.id) }
+                                                                                            : it
+                                                                                    )
+                                                                                )
+                                                                            }
+                                                                            style={{ width: 36, height: 36, borderRadius: 24, border: '1px solid #E9EAEB', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                                                                            title="Remove option"
+                                                                        >
+                                                                            <svg width="16" height="16" viewBox="0 0 24 25" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ stroke: '#535862', strokeWidth: '2' }}>
+                                                                                <path d="M18 6.66504L6 18.665M6 6.66504L18 18.665" stroke-linecap="round" stroke-linejoin="round" />
+                                                                            </svg>
+                                                                        </button>
+                                                                    </div>
+                                                                ))}
+                                                                <div style={{ padding: "0 16px" }}>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() =>
+                                                                            setPreScreeningQuestions((list) =>
+                                                                                list.map((it) =>
+                                                                                    it.id === q.id
+                                                                                        ? { ...it, options: [...(it.options || []), { id: guid(), text: '' }] }
+                                                                                        : it
+                                                                                )
+                                                                            )
+                                                                        }
+                                                                        style={{ display: 'inline-flex', alignItems: 'center', gap: 8, border: 'none', background: '#fff', color: '#535862', padding: '8px 14px', cursor: 'pointer', fontWeight: 700 }}
+                                                                    >
+                                                                        <span style={{ fontSize: 18, lineHeight: 1 }}>+</span> Add Option
+                                                                    </button>
+                                                                </div>
+                                                                <div style={{ width: "100%", height: 1, background: "#E9EAEB" }}></div>
+                                                                <div style={{ display: "flex", justifyContent: "end" }}>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => setPreScreeningQuestions((list) => list.filter((it) => it.id !== q.id))}
+                                                                        style={{ borderRadius: '24px', border: '1px solid #FDA29B', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', gap: 8, padding: '8px 14px', margin: '24px 0' }}
+                                                                        title="Remove question"
+                                                                    >
+                                                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ stroke: '#B32318', strokeWidth: '1.5' }}>
+                                                                            <path d="M3 6h18" stroke-linecap="round" />
+                                                                            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" stroke-linecap="round" />
+                                                                            <path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" stroke-linecap="round" />
+                                                                            <path d="M10 11v6M14 11v6" stroke-linecap="round" />
+                                                                        </svg>
+                                                                        <span style={{ color: "#B32318", fontWeight: 700, textWrap: 'nowrap' }}>Delete Question</span>
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                        {q.answerType === 'Range' && (
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                                                {/* Currency selector */}
+                                                                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                                                                    <div style={{ minWidth: 140 }}>
+                                                                        <CustomDropdown
+                                                                            onSelectSetting={(v) => setPreScreeningQuestions(list => list.map(it => it.id === q.id ? { ...it, currency: v } : it))}
+                                                                            screeningSetting={q.currency || 'PHP'}
+                                                                            settingList={[{ name: 'PHP' }, { name: 'USD' }]}
+                                                                            placeholder="Currency"
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                                <div style={{ display: 'flex', gap: 12 }}>
+                                                                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                                                        <span style={{ fontSize: 12, fontWeight: 600, color: '#667085' }}>Minimum Value</span>
+                                                                        <div className="nwz-salary-box" style={{ position: 'relative' }}>
+                                                                            <span className="symbol">{(q.currency || 'PHP') === 'USD' ? '$' : '₱'}</span>
+                                                                            <input
+                                                                                type="number"
+                                                                                placeholder="0"
+                                                                                min={0}
+                                                                                value={q.options?.[0]?.text || ''}
+                                                                                onChange={(e) => {
+                                                                                    const v = e.target.value;
+                                                                                    setPreScreeningQuestions(list => list.map(it => it.id === q.id ? { ...it, options: [{ id: q.options?.[0]?.id || guid(), text: v }, ...(it.options?.slice(1) || [])] } : it));
+                                                                                }}
+                                                                            />
+                                                                            <span className="ccy">{q.currency || 'PHP'}</span>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                                                        <span style={{ fontSize: 12, fontWeight: 600, color: '#667085' }}>Maximum Value</span>
+                                                                        <div className="nwz-salary-box" style={{ position: 'relative' }}>
+                                                                            <span className="symbol">{(q.currency || 'PHP') === 'USD' ? '$' : '₱'}</span>
+                                                                            <input
+                                                                                type="number"
+                                                                                placeholder="0"
+                                                                                min={0}
+                                                                                value={q.options?.[1]?.text || ''}
+                                                                                onChange={(e) => {
+                                                                                    const v = e.target.value;
+                                                                                    setPreScreeningQuestions(list => list.map(it => it.id === q.id ? { ...it, options: [it.options?.[0] || { id: guid(), text: '' }, { id: it.options?.[1]?.id || guid(), text: v }] } : it));
+                                                                                }}
+                                                                            />
+                                                                            <span className="ccy">{q.currency || 'PHP'}</span>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                                <div style={{ width: '100%', height: 1, background: '#E9EAEB' }}></div>
+                                                                <div style={{ display: 'flex', justifyContent: 'end' }}>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => setPreScreeningQuestions((list) => list.filter((it) => it.id !== q.id))}
+                                                                        style={{ borderRadius: '24px', border: '1px solid #FDA29B', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', gap: 8, padding: '8px 14px', margin: '24px 0' }}
+                                                                        title="Remove question"
+                                                                    >
+                                                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ stroke: '#B32318', strokeWidth: '1.5' }}>
+                                                                            <path d="M3 6h18" stroke-linecap="round" />
+                                                                            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" stroke-linecap="round" />
+                                                                            <path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" stroke-linecap="round" />
+                                                                            <path d="M10 11v6M14 11v6" stroke-linecap="round" />
+                                                                        </svg>
+                                                                        <span style={{ color: '#B32318', fontWeight: 700, textWrap: 'nowrap' }}>Delete Question</span>
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                        {(q.answerType === 'Short Answer' || q.answerType === 'Long Answer') && (
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                                                {/* No extra configuration required for short/long answers */}
+                                                                <div style={{ width: '100%', height: 1, background: '#E9EAEB' }}></div>
+                                                                <div style={{ display: 'flex', justifyContent: 'end' }}>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => setPreScreeningQuestions((list) => list.filter((it) => it.id !== q.id))}
+                                                                        style={{ borderRadius: '24px', border: '1px solid #FDA29B', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', gap: 8, padding: '8px 14px', margin: '24px 0' }}
+                                                                        title="Remove question"
+                                                                    >
+                                                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ stroke: '#B32318', strokeWidth: '1.5' }}>
+                                                                            <path d="M3 6h18" stroke-linecap="round" />
+                                                                            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" stroke-linecap="round" />
+                                                                            <path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" stroke-linecap="round" />
+                                                                            <path d="M10 11v6M14 11v6" stroke-linecap="round" />
+                                                                        </svg>
+                                                                        <span style={{ color: '#B32318', fontWeight: 700, textWrap: 'nowrap' }}>Delete Question</span>
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </div>
-
-                                                {q.answerType === 'Dropdown' && (
-                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                                        {(q.options || []).map((opt, oidx) => (
-                                                            <div key={opt.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                                                <div style={{ width: 24, textAlign: 'right', color: '#717680', fontWeight: 600 }}>{oidx + 1}.</div>
-                                                                <input
-                                                                    className="form-control nwz-input"
-                                                                    placeholder={`Option ${oidx + 1}`}
-                                                                    value={opt.text}
-                                                                    onChange={(e) =>
-                                                                        setPreScreeningQuestions((list) =>
-                                                                            list.map((it) =>
-                                                                                it.id === q.id
-                                                                                    ? {
-                                                                                        ...it,
-                                                                                        options: (it.options || []).map((o) => (o.id === opt.id ? { ...o, text: e.target.value } : o)),
-                                                                                    }
-                                                                                    : it
-                                                                            )
-                                                                        )
-                                                                    }
-                                                                    style={{ padding: '10px 14px', flex: 1 }}
-                                                                />
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() =>
-                                                                        setPreScreeningQuestions((list) =>
-                                                                            list.map((it) =>
-                                                                                it.id === q.id
-                                                                                    ? { ...it, options: (it.options || []).filter((o) => o.id !== opt.id) }
-                                                                                    : it
-                                                                            )
-                                                                        )
-                                                                    }
-                                                                    style={{ width: 36, height: 36, borderRadius: 24, border: '1px solid #E9EAEB', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-                                                                    title="Remove option"
-                                                                >
-                                                                    <img src="/icons/x.svg" width={16} height={16} />
-                                                                </button>
-                                                            </div>
-                                                        ))}
-                                                        <div style={{ padding: "0 16px" }}>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() =>
-                                                                    setPreScreeningQuestions((list) =>
-                                                                        list.map((it) =>
-                                                                            it.id === q.id
-                                                                                ? { ...it, options: [...(it.options || []), { id: guid(), text: '' }] }
-                                                                                : it
-                                                                        )
-                                                                    )
-                                                                }
-                                                                style={{ display: 'inline-flex', alignItems: 'center', gap: 8, border: 'none', background: '#fff', color: '#535862', padding: '8px 14px', cursor: 'pointer', fontWeight: 700 }}
-                                                            >
-                                                                <span style={{ fontSize: 18, lineHeight: 1 }}>+</span> Add Option
-                                                            </button>
-                                                        </div>
-
-                                                        {/* Divider */}
-                                                        <div style={{ width: "100%", height: 1, background: "#E9EAEB" }}></div>
-
-                                                        <div style={{ display: "flex", justifyContent: "end" }}>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => setPreScreeningQuestions((list) => list.filter((it) => it.id !== q.id))}
-                                                                style={{ borderRadius: '24px', border: '1px solid #FDA29B', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', gap: 8, padding: '8px 14px', margin: '24px 0' }}
-                                                                title="Remove question"
-                                                            >
-                                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ stroke: '#B32318', strokeWidth: '1.5' }}>
-                                                                    <path d="M3 6h18" stroke-linecap="round" />
-                                                                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" stroke-linecap="round" />
-                                                                    <path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" stroke-linecap="round" />
-                                                                    <path d="M10 11v6M14 11v6" stroke-linecap="round" />
-                                                                </svg>
-                                                                <span style={{ color: "#B32318", fontWeight: 700, textWrap: 'nowrap' }}>Delete Question</span>
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                )}
-                                                {q.answerType === 'Checkboxes' && (
-                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                                        {(q.options || []).map((opt, oidx) => (
-                                                            <div key={opt.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                                                <div style={{ width: 24, textAlign: 'right', color: '#717680', fontWeight: 600 }}>{oidx + 1}.</div>
-                                                                <input
-                                                                    className="form-control nwz-input"
-                                                                    placeholder={`Option ${oidx + 1}`}
-                                                                    value={opt.text}
-                                                                    onChange={(e) =>
-                                                                        setPreScreeningQuestions((list) =>
-                                                                            list.map((it) =>
-                                                                                it.id === q.id
-                                                                                    ? {
-                                                                                        ...it,
-                                                                                        options: (it.options || []).map((o) => (o.id === opt.id ? { ...o, text: e.target.value } : o)),
-                                                                                    }
-                                                                                    : it
-                                                                            )
-                                                                        )
-                                                                    }
-                                                                    style={{ padding: '10px 14px', flex: 1 }}
-                                                                />
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() =>
-                                                                        setPreScreeningQuestions((list) =>
-                                                                            list.map((it) =>
-                                                                                it.id === q.id
-                                                                                    ? { ...it, options: (it.options || []).filter((o) => o.id !== opt.id) }
-                                                                                    : it
-                                                                            )
-                                                                        )
-                                                                    }
-                                                                    style={{ width: 36, height: 36, borderRadius: 24, border: '1px solid #E9EAEB', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-                                                                    title="Remove option"
-                                                                >
-                                                                    <img src="/icons/x.svg" width={16} height={16} />
-                                                                </button>
-                                                            </div>
-                                                        ))}
-                                                        <div style={{ padding: "0 16px" }}>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() =>
-                                                                    setPreScreeningQuestions((list) =>
-                                                                        list.map((it) =>
-                                                                            it.id === q.id
-                                                                                ? { ...it, options: [...(it.options || []), { id: guid(), text: '' }] }
-                                                                                : it
-                                                                        )
-                                                                    )
-                                                                }
-                                                                style={{ display: 'inline-flex', alignItems: 'center', gap: 8, border: 'none', background: '#fff', color: '#535862', padding: '8px 14px', cursor: 'pointer', fontWeight: 700 }}
-                                                            >
-                                                                <span style={{ fontSize: 18, lineHeight: 1 }}>+</span> Add Option
-                                                            </button>
-                                                        </div>
-                                                        <div style={{ width: "100%", height: 1, background: "#E9EAEB" }}></div>
-                                                        <div style={{ display: "flex", justifyContent: "end" }}>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => setPreScreeningQuestions((list) => list.filter((it) => it.id !== q.id))}
-                                                                style={{ borderRadius: '24px', border: '1px solid #FDA29B', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', gap: 8, padding: '8px 14px', margin: '24px 0' }}
-                                                                title="Remove question"
-                                                            >
-                                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ stroke: '#B32318', strokeWidth: '1.5' }}>
-                                                                    <path d="M3 6h18" stroke-linecap="round" />
-                                                                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" stroke-linecap="round" />
-                                                                    <path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" stroke-linecap="round" />
-                                                                    <path d="M10 11v6M14 11v6" stroke-linecap="round" />
-                                                                </svg>
-                                                                <span style={{ color: "#B32318", fontWeight: 700, textWrap: 'nowrap' }}>Delete Question</span>
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                )}
-                                                {q.answerType === 'Range' && (
-                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                                                        <div style={{ display: 'flex', gap: 12 }}>
-                                                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                                                <span style={{ fontSize: 12, fontWeight: 600, color: '#667085' }}>Minimum Value</span>
-                                                                <input
-                                                                    className="form-control nwz-input"
-                                                                    placeholder="Min"
-                                                                    type="number"
-                                                                    value={q.options?.[0]?.text || ''}
-                                                                    onChange={(e) => {
-                                                                        const v = e.target.value;
-                                                                        setPreScreeningQuestions(list => list.map(it => it.id === q.id ? { ...it, options: [{ id: q.options?.[0]?.id || guid(), text: v }, ...(it.options?.slice(1) || [])] } : it));
-                                                                    }}
-                                                                    style={{ padding: '10px 14px' }}
-                                                                />
-                                                            </div>
-                                                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                                                <span style={{ fontSize: 12, fontWeight: 600, color: '#667085' }}>Maximum Value</span>
-                                                                <input
-                                                                    className="form-control nwz-input"
-                                                                    placeholder="Max"
-                                                                    type="number"
-                                                                    value={q.options?.[1]?.text || ''}
-                                                                    onChange={(e) => {
-                                                                        const v = e.target.value;
-                                                                        setPreScreeningQuestions(list => list.map(it => it.id === q.id ? { ...it, options: [it.options?.[0] || { id: guid(), text: '' }, { id: it.options?.[1]?.id || guid(), text: v }] } : it));
-                                                                    }}
-                                                                    style={{ padding: '10px 14px' }}
-                                                                />
-                                                            </div>
-                                                        </div>
-                                                        <div style={{ width: '100%', height: 1, background: '#E9EAEB' }}></div>
-                                                        <div style={{ display: 'flex', justifyContent: 'end' }}>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => setPreScreeningQuestions((list) => list.filter((it) => it.id !== q.id))}
-                                                                style={{ borderRadius: '24px', border: '1px solid #FDA29B', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', gap: 8, padding: '8px 14px', margin: '24px 0' }}
-                                                                title="Remove question"
-                                                            >
-                                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ stroke: '#B32318', strokeWidth: '1.5' }}>
-                                                                    <path d="M3 6h18" stroke-linecap="round" />
-                                                                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" stroke-linecap="round" />
-                                                                    <path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" stroke-linecap="round" />
-                                                                    <path d="M10 11v6M14 11v6" stroke-linecap="round" />
-                                                                </svg>
-                                                                <span style={{ color: '#B32318', fontWeight: 700, textWrap: 'nowrap' }}>Delete Question</span>
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                )}
-                                                {(q.answerType === 'Short Answer' || q.answerType === 'Long Answer') && (
-                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                                        {/* No extra configuration required for short/long answers */}
-                                                        <div style={{ width: '100%', height: 1, background: '#E9EAEB' }}></div>
-                                                        <div style={{ display: 'flex', justifyContent: 'end' }}>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => setPreScreeningQuestions((list) => list.filter((it) => it.id !== q.id))}
-                                                                style={{ borderRadius: '24px', border: '1px solid #FDA29B', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', gap: 8, padding: '8px 14px', margin: '24px 0' }}
-                                                                title="Remove question"
-                                                            >
-                                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ stroke: '#B32318', strokeWidth: '1.5' }}>
-                                                                    <path d="M3 6h18" stroke-linecap="round" />
-                                                                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" stroke-linecap="round" />
-                                                                    <path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" stroke-linecap="round" />
-                                                                    <path d="M10 11v6M14 11v6" stroke-linecap="round" />
-                                                                </svg>
-                                                                <span style={{ color: '#B32318', fontWeight: 700, textWrap: 'nowrap' }}>Delete Question</span>
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                )}
                                             </div>
                                         ))}
                                     </div>
@@ -1189,7 +1256,7 @@ export default function NewCareerWizard() {
                                 {[
                                     { t: 'Notice Period', s: 'How long is your notice period?', type: 'Dropdown' as const },
                                     { t: 'Work Setup', s: 'How often are you willing to report to the office each week?', type: 'Dropdown' as const },
-                                    { t: 'Asking Salary', s: 'How much is your expected monthly salary?', type: 'Short Answer' as const },
+                                    { t: 'Asking Salary', s: 'How much is your expected monthly salary?', type: 'Range' as const },
                                 ].map((q) => {
                                     const already = preScreeningQuestions.some((x) => x.prompt === q.s);
                                     return (
@@ -1209,13 +1276,29 @@ export default function NewCareerWizard() {
                                                             prompt: q.s,
                                                             answerType: q.type,
                                                             options:
-                                                                q.type === 'Dropdown'
+                                                                q.type === 'Range'
                                                                     ? [
-                                                                        { id: guid(), text: 'Immediately' },
-                                                                        { id: guid(), text: 'Within 30 days' },
-                                                                        { id: guid(), text: 'More than 30 days' },
+                                                                        { id: guid(), text: '' },
+                                                                        { id: guid(), text: '' },
                                                                     ]
-                                                                    : [],
+                                                                    : q.type === 'Dropdown'
+                                                                        ? (
+                                                                            q.t === 'Notice Period'
+                                                                                ? [
+                                                                                    { id: guid(), text: 'Immediately' },
+                                                                                    { id: guid(), text: '< 30 days' },
+                                                                                    { id: guid(), text: '> 30 days' },
+                                                                                ]
+                                                                                : q.t === 'Work Setup'
+                                                                                    ? [
+                                                                                        { id: guid(), text: '0 days (Fully Remote)' },
+                                                                                        { id: guid(), text: '1 day/week' },
+                                                                                        { id: guid(), text: '2-3 days/week' },
+                                                                                        { id: guid(), text: '4-5 days/week (Onsite)' },
+                                                                                    ]
+                                                                                    : []
+                                                                        )
+                                                                        : [],
                                                         },
                                                     ])
                                                 }
@@ -1238,6 +1321,149 @@ export default function NewCareerWizard() {
                             </div>
                             <div style={{ fontSize: 14, fontWeight: 500, color: '#667085', lineHeight: '20px' }}>
                                 Generate and curate interview questions by category. You can reorder categories and questions to match your flow.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {currentStep === 2 && (
+                <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start' }}>
+                    {/* Left column */}
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 24 }}>
+                        {/* 1. AI Interview Setup */}
+                        <div style={{ background: '#fff', borderRadius: 12, padding: 8 }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                <div style={{ padding: '4px 12px' }}>
+                                    <span style={{ fontSize: 16, fontWeight: 700, color: '#181D27' }}>1. AI Interview Setup</span>
+                                </div>
+                                <div style={{ padding: 24, border: '1px solid #EAECF5', borderRadius: 8, display: 'flex', flexDirection: 'column', gap: 24 }}>
+                                    {/* Interview Mode */}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                        <div style={{ fontSize: 14, fontWeight: 700, color: '#181D27' }}>Interview Mode</div>
+                                        <div style={{ fontSize: 14, fontWeight: 500, color: '#667085' }}>Configure how Jia conducts the interview. (Coming soon: asynchronous vs live modes)</div>
+                                        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                                            <button type="button" style={{ padding: '8px 14px', borderRadius: 24, border: '1px solid #E9EAEB', background: '#fff', fontSize: 14, fontWeight: 600, color: '#181D27', cursor: 'default' }}>Live (Default)</button>
+                                            <button type="button" disabled style={{ padding: '8px 14px', borderRadius: 24, border: '1px dashed #E9EAEB', background: '#F9FAFB', fontSize: 14, fontWeight: 600, color: '#717680', cursor: 'not-allowed' }}>Async (Soon)</button>
+                                        </div>
+                                    </div>
+
+                                    {/* Language & Voice */}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                        <div style={{ fontSize: 14, fontWeight: 700, color: '#181D27' }}>Language & Voice</div>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                                <span style={{ fontSize: 14, color: '#667085' }}>Interview Language</span>
+                                                <CustomDropdown
+                                                    onSelectSetting={(v) => setAiLanguage(v)}
+                                                    screeningSetting={aiLanguage}
+                                                    settingList={aiLanguageOptions}
+                                                    placeholder="Choose language"
+                                                />
+                                            </div>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                                <span style={{ fontSize: 14, color: '#667085' }}>Voice Style</span>
+                                                <CustomDropdown
+                                                    onSelectSetting={(v) => setAiVoice(v)}
+                                                    screeningSetting={aiVoice}
+                                                    settingList={aiVoiceOptions}
+                                                    placeholder="Choose voice"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Duration */}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                        <div style={{ fontSize: 14, fontWeight: 700, color: '#181D27' }}>Target Duration</div>
+                                        <div style={{ fontSize: 14, fontWeight: 500, color: '#667085' }}>Approximate maximum time (in minutes) Jia should aim for.</div>
+                                        <div style={{ maxWidth: 160 }}>
+                                            <input
+                                                className="form-control nwz-input"
+                                                type="number"
+                                                min={5}
+                                                placeholder="30"
+                                                value={interviewDuration === '' ? '' : interviewDuration}
+                                                onChange={(e) => {
+                                                    const v = e.target.value;
+                                                    setInterviewDuration(v === '' ? '' : Math.max(5, parseInt(v) || 5));
+                                                }}
+                                                style={{ padding: '10px 14px' }}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Candidate Intro Message */}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                        <div style={{ fontSize: 14, fontWeight: 700, color: '#181D27' }}>Candidate Intro Message</div>
+                                        <div style={{ fontSize: 14, fontWeight: 500, color: '#667085' }}>What Jia should say at the start to set context & tone.</div>
+                                        <textarea
+                                            className="form-control nwz-input"
+                                            placeholder="Hi! I’m Jia, your AI interviewer. I’ll ask you a mix of behavioral and technical questions..."
+                                            value={aiIntroMessage}
+                                            onChange={(e) => setAiIntroMessage(e.target.value)}
+                                            style={{ padding: '10px 14px', minHeight: 120, resize: 'vertical', whiteSpace: 'pre-wrap' }}
+                                        />
+                                    </div>
+
+                                    {/* Evaluation Focus */}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                        <div style={{ fontSize: 14, fontWeight: 700, color: '#181D27' }}>Evaluation Focus</div>
+                                        <div style={{ fontSize: 14, fontWeight: 500, color: '#667085' }}>Select high-level attributes Jia should prioritize while assessing answers.</div>
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                                            {evaluationFocusPresets.map(tag => {
+                                                const active = aiEvaluationFocus.includes(tag);
+                                                return (
+                                                    <button
+                                                        key={tag}
+                                                        type="button"
+                                                        onClick={() => toggleFocus(tag)}
+                                                        style={{
+                                                            padding: '6px 12px',
+                                                            borderRadius: 24,
+                                                            border: active ? '1px solid #444CE7' : '1px solid #E9EAEB',
+                                                            background: active ? '#EEF4FF' : '#fff',
+                                                            color: active ? '#181D27' : '#535862',
+                                                            fontSize: 13,
+                                                            fontWeight: 600,
+                                                            cursor: 'pointer'
+                                                        }}
+                                                    >
+                                                        {tag}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+
+                                    {/* Additional Notes */}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                        <div style={{ fontSize: 14, fontWeight: 700, color: '#181D27' }}>Additional Notes (internal)</div>
+                                        <div style={{ fontSize: 14, fontWeight: 500, color: '#667085' }}>Private guidance that won’t be shown to candidates. (e.g., Emphasize system design depth.)</div>
+                                        <textarea
+                                            className="form-control nwz-input"
+                                            placeholder="e.g. Probe deeply on database design and concurrency handling."
+                                            value={aiAdditionalNotes}
+                                            onChange={(e) => setAiAdditionalNotes(e.target.value)}
+                                            style={{ padding: '10px 14px', minHeight: 100, resize: 'vertical', whiteSpace: 'pre-wrap' }}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                    {/* Right column - Tips */}
+                    <div style={{ width: 'min(320px, 100dvh)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <div style={{ background: '#fff', border: '1px solid #E9EAEB', borderRadius: 12, padding: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                            <div style={{ fontSize: 16, fontWeight: 700, color: '#181D27', display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <img src="/icons/tips_and_updates.svg" width={20} height={20} alt="tips" />
+                                <span>Tips</span>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                <div style={{ fontSize: 14, fontWeight: 500, color: '#667085', lineHeight: '20px' }}>Keep intro concise and friendly—avoid jargon that early-career candidates may not understand.</div>
+                                <div style={{ fontSize: 14, fontWeight: 500, color: '#667085', lineHeight: '20px' }}>Choose 2–4 evaluation focus tags to keep AI scoring consistent.</div>
+                                <div style={{ fontSize: 14, fontWeight: 500, color: '#667085', lineHeight: '20px' }}>Target duration is a guideline; final transcript may vary slightly.</div>
                             </div>
                         </div>
                     </div>
