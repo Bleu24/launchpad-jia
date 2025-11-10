@@ -859,7 +859,7 @@ export default function NewCareerWizard() {
                                     <div style={{ width: '100%', height: 1, background: '#E9EAEB', margin: '8px 0' }}></div>
 
                                     {/* CV Secret Prompt */}
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, height: 250 }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                             <img src="/icons/sparkle.svg" alt="sparkle" width={19} height={19} />
                                             <span style={{ fontSize: 14, fontWeight: 700, color: '#181D27' }}>CV Secret Prompt <span style={{ fontWeight: 500, color: '#717680' }}>(optional)</span></span>
@@ -1335,122 +1335,210 @@ export default function NewCareerWizard() {
                         <div style={{ background: '#fff', borderRadius: 12, padding: 8 }}>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                                 <div style={{ padding: '4px 12px' }}>
-                                    <span style={{ fontSize: 16, fontWeight: 700, color: '#181D27' }}>1. AI Interview Setup</span>
+                                    <span style={{ fontSize: 16, fontWeight: 700, color: '#181D27' }}>1. AI Interview Settings</span>
                                 </div>
                                 <div style={{ padding: 24, border: '1px solid #EAECF5', borderRadius: 8, display: 'flex', flexDirection: 'column', gap: 24 }}>
                                     {/* Interview Mode */}
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                        <div style={{ fontSize: 14, fontWeight: 700, color: '#181D27' }}>Interview Mode</div>
-                                        <div style={{ fontSize: 14, fontWeight: 500, color: '#667085' }}>Configure how Jia conducts the interview. (Coming soon: asynchronous vs live modes)</div>
-                                        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                                            <button type="button" style={{ padding: '8px 14px', borderRadius: 24, border: '1px solid #E9EAEB', background: '#fff', fontSize: 14, fontWeight: 600, color: '#181D27', cursor: 'default' }}>Live (Default)</button>
-                                            <button type="button" disabled style={{ padding: '8px 14px', borderRadius: 24, border: '1px dashed #E9EAEB', background: '#F9FAFB', fontSize: 14, fontWeight: 600, color: '#717680', cursor: 'not-allowed' }}>Async (Soon)</button>
-                                        </div>
-                                    </div>
-
-                                    {/* Language & Voice */}
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                                        <div style={{ fontSize: 14, fontWeight: 700, color: '#181D27' }}>Language & Voice</div>
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                                                <span style={{ fontSize: 14, color: '#667085' }}>Interview Language</span>
-                                                <CustomDropdown
-                                                    onSelectSetting={(v) => setAiLanguage(v)}
-                                                    screeningSetting={aiLanguage}
-                                                    settingList={aiLanguageOptions}
-                                                    placeholder="Choose language"
-                                                />
-                                            </div>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                                                <span style={{ fontSize: 14, color: '#667085' }}>Voice Style</span>
-                                                <CustomDropdown
-                                                    onSelectSetting={(v) => setAiVoice(v)}
-                                                    screeningSetting={aiVoice}
-                                                    settingList={aiVoiceOptions}
-                                                    placeholder="Choose voice"
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Duration */}
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                        <div style={{ fontSize: 14, fontWeight: 700, color: '#181D27' }}>Target Duration</div>
-                                        <div style={{ fontSize: 14, fontWeight: 500, color: '#667085' }}>Approximate maximum time (in minutes) Jia should aim for.</div>
-                                        <div style={{ maxWidth: 160 }}>
-                                            <input
-                                                className="form-control nwz-input"
-                                                type="number"
-                                                min={5}
-                                                placeholder="30"
-                                                value={interviewDuration === '' ? '' : interviewDuration}
-                                                onChange={(e) => {
-                                                    const v = e.target.value;
-                                                    setInterviewDuration(v === '' ? '' : Math.max(5, parseInt(v) || 5));
-                                                }}
-                                                style={{ padding: '10px 14px' }}
+                                        <div style={{ fontSize: 14, fontWeight: 700, color: '#181D27' }}>AI Interview Screening</div>
+                                        <div style={{ fontSize: 14, fontWeight: 500, color: '#667085' }}>Jia automatically endorses candidates who meet the chosen criteria.</div>
+                                        <div style={{ width: 300 }}>
+                                            <CustomDropdown
+                                                variant="screening"
+                                                onSelectSetting={(v) => setScreeningSetting(v)}
+                                                screeningSetting={screeningSetting}
+                                                settingList={screeningOptions}
+                                                placeholder="Good Fit and Above"
                                             />
                                         </div>
                                     </div>
 
-                                    {/* Candidate Intro Message */}
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                        <div style={{ fontSize: 14, fontWeight: 700, color: '#181D27' }}>Candidate Intro Message</div>
-                                        <div style={{ fontSize: 14, fontWeight: 500, color: '#667085' }}>What Jia should say at the start to set context & tone.</div>
-                                        <textarea
-                                            className="form-control nwz-input"
-                                            placeholder="Hi! I’m Jia, your AI interviewer. I’ll ask you a mix of behavioral and technical questions..."
-                                            value={aiIntroMessage}
-                                            onChange={(e) => setAiIntroMessage(e.target.value)}
-                                            style={{ padding: '10px 14px', minHeight: 120, resize: 'vertical', whiteSpace: 'pre-wrap' }}
-                                        />
-                                    </div>
+                                    {/* Divider */}
+                                    <div style={{ width: "100%", height: 1, background: "#E9EAEB", marginTop: 24, marginBottom: 24 }}></div>
 
-                                    {/* Evaluation Focus */}
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                        <div style={{ fontSize: 14, fontWeight: 700, color: '#181D27' }}>Evaluation Focus</div>
-                                        <div style={{ fontSize: 14, fontWeight: 500, color: '#667085' }}>Select high-level attributes Jia should prioritize while assessing answers.</div>
-                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                                            {evaluationFocusPresets.map(tag => {
-                                                const active = aiEvaluationFocus.includes(tag);
-                                                return (
-                                                    <button
-                                                        key={tag}
-                                                        type="button"
-                                                        onClick={() => toggleFocus(tag)}
-                                                        style={{
-                                                            padding: '6px 12px',
-                                                            borderRadius: 24,
-                                                            border: active ? '1px solid #444CE7' : '1px solid #E9EAEB',
-                                                            background: active ? '#EEF4FF' : '#fff',
-                                                            color: active ? '#181D27' : '#535862',
-                                                            fontSize: 13,
-                                                            fontWeight: 600,
-                                                            cursor: 'pointer'
-                                                        }}
-                                                    >
-                                                        {tag}
-                                                    </button>
-                                                );
-                                            })}
+                                    {/* Require Video */}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                        <div style={{ fontSize: 14, fontWeight: 700, color: '#181D27' }}>Require Video on Interview </div>
+                                        <div style={{ fontSize: 14, fontWeight: 500, color: '#667085' }}>Require candidates to keep their camera on. Recordings will appear on their analysis page. </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+                                                <img src="/icons/cam.svg" alt="camcorder" />
+                                                <span>Require Video Interview</span>
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                <label className="switch" style={{ display: "flex", alignItems: "center", margin: 0 }}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={requireVideo}
+                                                        onChange={() => setRequireVideo(v => !v)}
+                                                    />
+                                                    <span className="slider round"></span>
+                                                </label>
+                                                <span>{requireVideo ? "Yes" : "No"}</span>
+                                            </div>
+
                                         </div>
                                     </div>
 
-                                    {/* Additional Notes */}
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                        <div style={{ fontSize: 14, fontWeight: 700, color: '#181D27' }}>Additional Notes (internal)</div>
-                                        <div style={{ fontSize: 14, fontWeight: 500, color: '#667085' }}>Private guidance that won’t be shown to candidates. (e.g., Emphasize system design depth.)</div>
+                                    {/* Divider */}
+                                    <div style={{ width: "100%", height: 1, background: "#E9EAEB", marginTop: 24, marginBottom: 24 }}></div>
+
+                                    {/* AI Interview Secret Prompt */}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, height: 250 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                            <img src="/icons/sparkle.svg" alt="sparkle" width={19} height={19} />
+                                            <span style={{ fontSize: 14, fontWeight: 700, color: '#181D27' }}>AI Interview Secret Prompt <span style={{ fontWeight: 500, color: '#717680' }}>(optional)</span></span>
+                                            <span title="These prompts remain hidden from candidates and the public job portal. Additionally, only Admins and the Job Owner can view the secret prompt." style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 18, height: 18, borderRadius: '50%', border: '1px solid #D0D5DD', color: '#667085', fontSize: 12, cursor: 'help' }}>i</span>
+                                        </div>
+                                        <div style={{ fontSize: 14, fontWeight: 500, color: '#667085' }}>
+                                            Secret Prompts give you extra control over Jia’s evaluation style, complementing her accurate assessment of requirements from the job description.
+                                        </div>
                                         <textarea
+                                            ref={secretPromptRef}
+                                            value={secretPrompt}
+                                            onChange={(e) => {
+                                                let v = e.target.value;
+                                                if (v.length > 0 && !v.startsWith('• ')) {
+                                                    v = '• ' + v;
+                                                }
+                                                setSecretPrompt(v);
+                                            }}
+                                            onKeyDown={(e) => {
+                                                const ta = e.currentTarget as HTMLTextAreaElement;
+                                                if (e.key === 'Enter' && !e.shiftKey) {
+                                                    e.preventDefault();
+                                                    const start = ta.selectionStart ?? 0;
+                                                    const end = ta.selectionEnd ?? start;
+                                                    const before = secretPrompt.slice(0, start);
+                                                    const after = secretPrompt.slice(end);
+                                                    const insert = '\n• ';
+                                                    const next = before + insert + after;
+                                                    setSecretPrompt(next);
+                                                    // place caret after inserted bullet
+                                                    requestAnimationFrame(() => {
+                                                        const t = secretPromptRef.current;
+                                                        if (t) {
+                                                            const pos = start + insert.length;
+                                                            t.selectionStart = pos;
+                                                            t.selectionEnd = pos;
+                                                            t.focus();
+                                                        }
+                                                    });
+                                                }
+                                                // Shift+Enter or natural wrapping: let browser handle default (no extra bullet)
+                                            }}
+                                            placeholder="Enter a secret prompt (e.g. Treat candidates who speak in Taglish, English, or Tagalog equally. Focus on clarity, coherence, and confidence rather than language preference or accent.)"
                                             className="form-control nwz-input"
-                                            placeholder="e.g. Probe deeply on database design and concurrency handling."
-                                            value={aiAdditionalNotes}
-                                            onChange={(e) => setAiAdditionalNotes(e.target.value)}
-                                            style={{ padding: '10px 14px', minHeight: 100, resize: 'vertical', whiteSpace: 'pre-wrap' }}
+                                            style={{ padding: '10px 14px', minHeight: 120, resize: 'vertical', whiteSpace: 'pre-wrap', height: 50 }}
                                         />
                                     </div>
                                 </div>
                             </div>
+                        </div>
 
+                        {/* 2. AI Interview Setup */}
+                        <div style={{ background: '#fff', borderRadius: 12, padding: 8 }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                <div style={{ padding: '4px 12px' }}>
+                                    <span style={{ fontSize: 16, fontWeight: 700, color: '#181D27' }}>2. AI Interview Questions</span>
+                                </div>
+                                <div style={{ padding: 24, border: '1px solid #EAECF5', borderRadius: 8, display: 'flex', flexDirection: 'column', gap: 24 }}>
+                                    {/* Interview Mode */}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                        <div style={{ fontSize: 14, fontWeight: 700, color: '#181D27' }}>AI Interview Screening</div>
+                                        <div style={{ fontSize: 14, fontWeight: 500, color: '#667085' }}>Jia automatically endorses candidates who meet the chosen criteria.</div>
+                                        <div style={{ width: 300 }}>
+                                            <CustomDropdown
+                                                variant="screening"
+                                                onSelectSetting={(v) => setScreeningSetting(v)}
+                                                screeningSetting={screeningSetting}
+                                                settingList={screeningOptions}
+                                                placeholder="Good Fit and Above"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Divider */}
+                                    <div style={{ width: "100%", height: 1, background: "#E9EAEB", marginTop: 24, marginBottom: 24 }}></div>
+
+                                    {/* Require Video */}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                        <div style={{ fontSize: 14, fontWeight: 700, color: '#181D27' }}>Require Video on Interview </div>
+                                        <div style={{ fontSize: 14, fontWeight: 500, color: '#667085' }}>Require candidates to keep their camera on. Recordings will appear on their analysis page. </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+                                                <img src="/icons/cam.svg" alt="camcorder" />
+                                                <span>Require Video Interview</span>
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                <label className="switch" style={{ display: "flex", alignItems: "center", margin: 0 }}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={requireVideo}
+                                                        onChange={() => setRequireVideo(v => !v)}
+                                                    />
+                                                    <span className="slider round"></span>
+                                                </label>
+                                                <span>{requireVideo ? "Yes" : "No"}</span>
+                                            </div>
+
+                                        </div>
+                                    </div>
+
+                                    {/* Divider */}
+                                    <div style={{ width: "100%", height: 1, background: "#E9EAEB", marginTop: 24, marginBottom: 24 }}></div>
+
+                                    {/* AI Interview Secret Prompt */}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, height: 250 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                            <img src="/icons/sparkle.svg" alt="sparkle" width={19} height={19} />
+                                            <span style={{ fontSize: 14, fontWeight: 700, color: '#181D27' }}>AI Interview Secret Prompt <span style={{ fontWeight: 500, color: '#717680' }}>(optional)</span></span>
+                                            <span title="These prompts remain hidden from candidates and the public job portal. Additionally, only Admins and the Job Owner can view the secret prompt." style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 18, height: 18, borderRadius: '50%', border: '1px solid #D0D5DD', color: '#667085', fontSize: 12, cursor: 'help' }}>i</span>
+                                        </div>
+                                        <div style={{ fontSize: 14, fontWeight: 500, color: '#667085' }}>
+                                            Secret Prompts give you extra control over Jia’s evaluation style, complementing her accurate assessment of requirements from the job description.
+                                        </div>
+                                        <textarea
+                                            ref={secretPromptRef}
+                                            value={secretPrompt}
+                                            onChange={(e) => {
+                                                let v = e.target.value;
+                                                if (v.length > 0 && !v.startsWith('• ')) {
+                                                    v = '• ' + v;
+                                                }
+                                                setSecretPrompt(v);
+                                            }}
+                                            onKeyDown={(e) => {
+                                                const ta = e.currentTarget as HTMLTextAreaElement;
+                                                if (e.key === 'Enter' && !e.shiftKey) {
+                                                    e.preventDefault();
+                                                    const start = ta.selectionStart ?? 0;
+                                                    const end = ta.selectionEnd ?? start;
+                                                    const before = secretPrompt.slice(0, start);
+                                                    const after = secretPrompt.slice(end);
+                                                    const insert = '\n• ';
+                                                    const next = before + insert + after;
+                                                    setSecretPrompt(next);
+                                                    // place caret after inserted bullet
+                                                    requestAnimationFrame(() => {
+                                                        const t = secretPromptRef.current;
+                                                        if (t) {
+                                                            const pos = start + insert.length;
+                                                            t.selectionStart = pos;
+                                                            t.selectionEnd = pos;
+                                                            t.focus();
+                                                        }
+                                                    });
+                                                }
+                                                // Shift+Enter or natural wrapping: let browser handle default (no extra bullet)
+                                            }}
+                                            placeholder="Enter a secret prompt (e.g. Treat candidates who speak in Taglish, English, or Tagalog equally. Focus on clarity, coherence, and confidence rather than language preference or accent.)"
+                                            className="form-control nwz-input"
+                                            style={{ padding: '10px 14px', minHeight: 120, resize: 'vertical', whiteSpace: 'pre-wrap', height: 50 }}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     {/* Right column - Tips */}
