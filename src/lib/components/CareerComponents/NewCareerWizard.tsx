@@ -29,6 +29,14 @@ const screeningOptions = [
     { name: "No Automatic Promotion" },
 ];
 
+const preScreeningOptions = [
+    { icon: '/icons/user2.svg', name: 'Short Answer' },
+    { icon: '/icons/longans.svg', name: 'Long Answer' },
+    { name: 'Dropdown' },
+    { name: 'Checkboxes' },
+    { name: 'Range' }
+];
+
 const defaultQuestions = [
     { id: 1, category: "CV Validation / Experience", questionCountToAsk: null, questions: [] },
     { id: 2, category: "Technical", questionCountToAsk: null, questions: [] },
@@ -41,7 +49,7 @@ type PreScreenOption = { id: string; text: string };
 type PreScreenQuestion = {
     id: string;
     prompt: string;
-    answerType: "Short Answer" | "Multiple Choice";
+    answerType: "Short Answer" | "Long Answer" | "Dropdown" | "Checkboxes" | "Range";
     options?: PreScreenOption[];
 };
 
@@ -669,6 +677,7 @@ export default function NewCareerWizard() {
                                         </div>
                                     </div>
 
+
                                     {/* Divider */}
                                     <div style={{ width: "100%", height: 1, background: "#E9EAEB" }}></div>
 
@@ -888,54 +897,13 @@ export default function NewCareerWizard() {
                                         <span style={{ fontWeight: 700 }}>Add custom</span>
                                     </button>
                                 </div>
+                            </div>
 
-                                {/* Suggestions ON TOP of the editor list */}
-                                <div style={{ padding: 16, border: '1px solid #E9EAEB', borderRadius: 8, marginBottom: 12 }}>
-                                    <div style={{ fontSize: 14, fontWeight: 700, color: '#181D27', marginBottom: 8 }}>Suggested Pre-screening Questions:</div>
-                                    {[
-                                        { t: 'Notice Period', s: 'How long is your notice period?', type: 'Multiple Choice' as const },
-                                        { t: 'Work Setup', s: 'How often are you willing to report to the office each week?', type: 'Multiple Choice' as const },
-                                        { t: 'Asking Salary', s: 'How much is your expected monthly salary?', type: 'Short Answer' as const },
-                                    ].map((q) => {
-                                        const already = preScreeningQuestions.some((x) => x.prompt === q.s);
-                                        return (
-                                            <div key={q.t} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0' }}>
-                                                <div>
-                                                    <div style={{ fontSize: 14, fontWeight: 700, color: '#181D27' }}>{q.t}</div>
-                                                    <div style={{ fontSize: 14, fontWeight: 500, color: '#667085' }}>{q.s}</div>
-                                                </div>
-                                                <button
-                                                    type="button"
-                                                    disabled={already}
-                                                    onClick={() =>
-                                                        setPreScreeningQuestions((list) => [
-                                                            ...list,
-                                                            {
-                                                                id: guid(),
-                                                                prompt: q.s,
-                                                                answerType: q.type,
-                                                                options:
-                                                                    q.type === 'Multiple Choice'
-                                                                        ? [
-                                                                            { id: guid(), text: 'Immediately' },
-                                                                            { id: guid(), text: 'Within 30 days' },
-                                                                            { id: guid(), text: 'More than 30 days' },
-                                                                        ]
-                                                                        : [],
-                                                            },
-                                                        ])
-                                                    }
-                                                    style={{ border: '1px solid #E9EAEB', background: already ? '#F5F5F5' : '#fff', color: '#111827', padding: '6px 12px', borderRadius: 20, cursor: already ? 'not-allowed' : 'pointer', fontWeight: 700, opacity: already ? 0.7 : 1 }}
-                                                >
-                                                    {already ? 'Added' : 'Add'}
-                                                </button>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
+                            {/* Suggested Pre-screening Questions */}
+                            <div style={{ padding: 16, border: '1px solid #E9EAEB', borderRadius: 8, marginBottom: 12 }}>
 
-                                {/* Editor list BELOW suggestions */}
-                                <div style={{ padding: 16, border: "1px solid #E9EAEB", borderRadius: 8 }}>
+                                {/* Screening Placeholder */}
+                                <div style={{ borderRadius: 8 }}>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                                         {preScreeningQuestions.length === 0 && (
                                             <div style={{ fontSize: 14, fontWeight: 500, color: '#667085' }}>No pre-screening questions added yet.</div>
@@ -959,6 +927,7 @@ export default function NewCareerWizard() {
                                                     </div>
                                                     <div style={{ minWidth: 220 }}>
                                                         <CustomDropdown
+                                                            variant="preScreening"
                                                             onSelectSetting={(v) =>
                                                                 setPreScreeningQuestions((list) =>
                                                                     list.map((it) =>
@@ -972,7 +941,7 @@ export default function NewCareerWizard() {
                                                                 )
                                                             }
                                                             screeningSetting={q.answerType}
-                                                            settingList={[{ name: 'Short Answer' }, { name: 'Multiple Choice' }]}
+                                                            settingList={preScreeningOptions}
                                                             placeholder="Answer type"
                                                         />
                                                     </div>
@@ -1050,6 +1019,51 @@ export default function NewCareerWizard() {
                                         ))}
                                     </div>
                                 </div>
+
+                                {/* Divider below stepper */}
+                                <div style={{ width: "100%", height: 1, background: "#EAECF5", marginTop: 24, marginBottom: 24 }}></div>
+
+                                <div style={{ fontSize: 14, fontWeight: 700, color: '#181D27', marginBottom: 8 }}>Suggested Pre-screening Questions:</div>
+                                {[
+                                    { t: 'Notice Period', s: 'How long is your notice period?', type: 'Multiple Choice' as const },
+                                    { t: 'Work Setup', s: 'How often are you willing to report to the office each week?', type: 'Multiple Choice' as const },
+                                    { t: 'Asking Salary', s: 'How much is your expected monthly salary?', type: 'Short Answer' as const },
+                                ].map((q) => {
+                                    const already = preScreeningQuestions.some((x) => x.prompt === q.s);
+                                    return (
+                                        <div key={q.t} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0' }}>
+                                            <div>
+                                                <div style={{ fontSize: 14, fontWeight: 700, color: '#181D27' }}>{q.t}</div>
+                                                <div style={{ fontSize: 14, fontWeight: 500, color: '#667085' }}>{q.s}</div>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                disabled={already}
+                                                onClick={() =>
+                                                    setPreScreeningQuestions((list) => [
+                                                        ...list,
+                                                        {
+                                                            id: guid(),
+                                                            prompt: q.s,
+                                                            answerType: q.type,
+                                                            options:
+                                                                q.type === 'Multiple Choice'
+                                                                    ? [
+                                                                        { id: guid(), text: 'Immediately' },
+                                                                        { id: guid(), text: 'Within 30 days' },
+                                                                        { id: guid(), text: 'More than 30 days' },
+                                                                    ]
+                                                                    : [],
+                                                        },
+                                                    ])
+                                                }
+                                                style={{ border: '1px solid #E9EAEB', background: already ? '#F5F5F5' : '#fff', color: '#111827', padding: '6px 12px', borderRadius: 20, cursor: already ? 'not-allowed' : 'pointer', fontWeight: 700, opacity: already ? 0.7 : 1 }}
+                                            >
+                                                {already ? 'Added' : 'Add'}
+                                            </button>
+                                        </div>
+                                    );
+                                })}
                             </div>
                         </div>
                     </div>
