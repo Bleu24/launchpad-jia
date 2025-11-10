@@ -17,10 +17,16 @@ export default function CustomDropdown(props) {
         <span style={{ display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap' }}>
           {variant === 'screening' && screeningSetting && (
             <>
-              {screeningSetting === 'Good Fit and Above' && <img src="/icons/doublecheck.svg" alt="double check" width={20} height={12} />}
+              {screeningSetting === 'Good Fit and Above' && <img src="/icons/checkV5.svg" alt="single check" width={20} height={12} />}
               {screeningSetting === 'Only Strong Fit' && <img src="/icons/doublecheck.svg" alt="double check" width={20} height={12} />}
               {screeningSetting === 'No Automatic Promotion' && <img src="/icons/x.svg" alt="no auto" width={16} height={16} style={{ opacity: 0.6 }} />}
             </>
+          )}
+          {variant === 'preScreening' && screeningSetting && (
+            (() => {
+              const selectedItem = settingList.find(item => item.name === screeningSetting);
+              return selectedItem?.icon ? <img src={selectedItem.icon} alt="" width={16} height={16} /> : null;
+            })()
           )}
           {screeningSetting ? (
             <span>{screeningSetting.replace("_", " ")}</span>
@@ -65,11 +71,14 @@ export default function CustomDropdown(props) {
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   {variant === 'screening' && (
-                    isNone ? (
-                      <img src="/icons/x.svg" alt="none" width={16} height={16} style={{ opacity: 0.6 }} />
-                    ) : (
-                      <img src="/icons/doublecheck.svg" alt="fit" width={20} height={12} style={{ opacity: selected ? 1 : 0.35 }} />
-                    )
+                    <>
+                      {setting.name === 'Good Fit and Above' && <img src="/icons/checkV5.svg" alt="single check" width={20} height={12} style={{ opacity: selected ? 1 : 0.35 }} />}
+                      {setting.name === 'Only Strong Fit' && <img src="/icons/doublecheck.svg" alt="double check" width={20} height={12} style={{ opacity: selected ? 1 : 0.35 }} />}
+                      {setting.name === 'No Automatic Promotion' && <img src="/icons/x.svg" alt="no auto" width={16} height={16} style={{ opacity: 0.6 }} />}
+                    </>
+                  )}
+                  {variant === 'preScreening' && setting.icon && (
+                    <img src={setting.icon} alt="" width={16} height={16} />
                   )}
                   <span style={{ fontSize: 14 }}>{setting.name.replace('_', ' ')}</span>
                 </div>
