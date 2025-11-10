@@ -177,6 +177,20 @@ export default function NewCareerWizard() {
         );
     }, [jobTitle, description, employmentType, workSetup, province, city]);
 
+    // Step 3 (AI Interview Setup) requirement: at least one question per category
+    const allCategoriesHaveAtLeastOne = useMemo(() => {
+        const total = questions.reduce((sum, cat) => sum + (cat.questions?.length || 0), 0);
+        const remaining = 5 - total;
+        return { status: total >= 5, remaining };
+    }, [questions]);
+
+    // Generic gate for current step
+    const canProceedCurrentStep = useMemo(() => {
+        if (currentStep === 0) return canProceedStep1;
+        if (currentStep === 2) return allCategoriesHaveAtLeastOne; // enforce per-category questions before leaving Step 2
+        return true; // other steps currently have no gating rules
+    }, [currentStep, canProceedStep1, allCategoriesHaveAtLeastOne]);
+
     const isInvalid = (val: string) => attemptedContinue && val.trim().length === 0;
 
     // Step 1 completeness for stepper icon
@@ -185,7 +199,13 @@ export default function NewCareerWizard() {
         return values.filter((v) => v && v.trim().length > 0).length;
     }, [jobTitle, description, employmentType, workSetup, province, city]);
     const pageIncomplete = fieldsFilledCount < 6;
-    const showCurrentAlert = attemptedContinue && pageIncomplete; // after attempted continue, show until all required fields are filled
+    // Show alert icon on the active step if its validation failed after a continue attempt
+    const showCurrentAlert = useMemo(() => {
+        if (!attemptedContinue) return false;
+        if (currentStep === 0) return pageIncomplete;
+        if (currentStep === 2) return !allCategoriesHaveAtLeastOne;
+        return false;
+    }, [attemptedContinue, currentStep, pageIncomplete, allCategoriesHaveAtLeastOne]);
 
     const addMember = (email: string, role: TeamMember['role'] = 'Contributor') => {
         if (!email) return;
@@ -281,14 +301,13 @@ export default function NewCareerWizard() {
 
     // Advance to next wizard step without saving when form is valid
     const handleContinue = () => {
-        if (!canProceedStep1) {
+        // Determine gating for current step
+        if (!canProceedCurrentStep) {
             setAttemptedContinue(true);
             return;
         }
-        // Clear attempted flag once user successfully proceeds
         setAttemptedContinue(false);
-        setCurrentStep((prev) => (prev < steps.length - 1 ? prev + 1 : prev));
-        // Future: persist draft to localStorage or temp server endpoint here if needed
+        setCurrentStep(prev => (prev < steps.length - 1 ? prev + 1 : prev));
     };
 
     return (
@@ -349,16 +368,17 @@ export default function NewCareerWizard() {
                             Back
                         </button>
                     )}
+                    {/* Save button only relevant for initial required fields; keep disabled state tied to step 0 */}
                     <button
-                        disabled={!canProceedStep1 || submitting}
-                        style={{ width: "fit-content", color: "#414651", background: "#fff", border: "1px solid #D5D7DA", padding: "8px 16px", borderRadius: 60, cursor: !canProceedStep1 || submitting ? "not-allowed" : "pointer" }}
+                        disabled={submitting || (currentStep === 0 && !canProceedStep1)}
+                        style={{ width: "fit-content", color: "#414651", background: "#fff", border: "1px solid #D5D7DA", padding: "8px 16px", borderRadius: 60, cursor: submitting || (currentStep === 0 && !canProceedStep1) ? "not-allowed" : "pointer", opacity: submitting ? 0.85 : 1 }}
                         onClick={() => handleSave("inactive")}
                     >
                         Save as Unpublished
                     </button>
                     <button
                         disabled={submitting}
-                        style={{ width: "fit-content", background: submitting ? "#D5D7DA" : "black", color: "#fff", border: "1px solid #E9EAEB", padding: "8px 16px", borderRadius: 60, cursor: submitting ? "not-allowed" : "pointer", opacity: canProceedStep1 ? 1 : 0.85 }}
+                        style={{ width: "fit-content", background: submitting ? "#D5D7DA" : "black", color: "#fff", border: "1px solid #E9EAEB", padding: "8px 16px", borderRadius: 60, cursor: submitting ? "not-allowed" : "pointer", opacity: canProceedCurrentStep ? 1 : 0.85 }}
                         onClick={handleContinue}
                     >
                         <i className="la la-arrow-right" style={{ color: "#fff", fontSize: 20, marginRight: 8 }}></i>
@@ -1440,103 +1460,130 @@ export default function NewCareerWizard() {
                         <div style={{ background: '#fff', borderRadius: 12, padding: 8 }}>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                                 <div style={{ padding: '4px 12px' }}>
-                                    <span style={{ fontSize: 16, fontWeight: 700, color: '#181D27' }}>2. AI Interview Questions</span>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                            <span style={{ fontSize: 16, fontWeight: 700, color: '#181D27' }}>2. AI Interview Questions</span>
+                                            <div
+                                                style={{
+                                                    borderRadius: '50%',
+                                                    width: 25,
+                                                    height: 22,
+                                                    border: '1px solid #D5D9EB',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    fontSize: 14,
+                                                    backgroundColor: '#F8F9FC',
+                                                    color: '#363F72',
+                                                    fontWeight: 700,
+                                                }}
+                                            >
+                                                {questions.reduce((sum, cat) => sum + (cat.questions?.length || 0), 0)}
+                                            </div>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                // TODO: trigger AI generation flow for this heading
+                                                console.log('Generate questions for');
+                                            }}
+                                            style={{
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: 6,
+                                                background: '#111827',
+                                                color: '#fff',
+                                                border: '1px solid #E9EAEB',
+                                                padding: '8px 14px',
+                                                borderRadius: 24,
+                                                cursor: 'pointer',
+                                                fontSize: 14,
+                                                fontWeight: 700
+                                            }}
+                                        >
+                                            <img src="/icons/sparklewhite.svg" alt="" width={16} height={16} />
+                                            <span>Generate all questions</span>
+                                        </button>
+                                    </div>
                                 </div>
                                 <div style={{ padding: 24, border: '1px solid #EAECF5', borderRadius: 8, display: 'flex', flexDirection: 'column', gap: 24 }}>
-                                    {/* Interview Mode */}
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                        <div style={{ fontSize: 14, fontWeight: 700, color: '#181D27' }}>AI Interview Screening</div>
-                                        <div style={{ fontSize: 14, fontWeight: 500, color: '#667085' }}>Jia automatically endorses candidates who meet the chosen criteria.</div>
-                                        <div style={{ width: 300 }}>
-                                            <CustomDropdown
-                                                variant="screening"
-                                                onSelectSetting={(v) => setScreeningSetting(v)}
-                                                screeningSetting={screeningSetting}
-                                                settingList={screeningOptions}
-                                                placeholder="Good Fit and Above"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    {/* Divider */}
-                                    <div style={{ width: "100%", height: 1, background: "#E9EAEB", marginTop: 24, marginBottom: 24 }}></div>
-
-                                    {/* Require Video */}
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                        <div style={{ fontSize: 14, fontWeight: 700, color: '#181D27' }}>Require Video on Interview </div>
-                                        <div style={{ fontSize: 14, fontWeight: 500, color: '#667085' }}>Require candidates to keep their camera on. Recordings will appear on their analysis page. </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
-                                                <img src="/icons/cam.svg" alt="camcorder" />
-                                                <span>Require Video Interview</span>
+                                    {attemptedContinue && !allCategoriesHaveAtLeastOne.status && (
+                                        <div style={{
+                                            background: '#FEF3F2',
+                                            border: '1px solid #FDA29B',
+                                            color: '#B42318',
+                                            fontSize: 13,
+                                            fontWeight: 600,
+                                            padding: '10px 14px',
+                                            borderRadius: 8,
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: 8
+                                        }}>
+                                            <img src="/icons/alert-triangle.svg" width={18} height={18} alt="alert" />
+                                            <span>Please add at least {allCategoriesHaveAtLeastOne.remaining} interview questions.</span>
+                                        </div>  
+                                    )}
+                                    {["CV Validation / Experience", "Technical", "Behavioural", "Analytical", "Others"].map((heading, idx, arr) => (
+                                        <React.Fragment key={heading}>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'start', justifyContent: 'space-between', gap: 16 }}>
+                                                    <span style={{ fontSize: 14, fontWeight: 700, color: '#181D27' }}>{heading}</span>
+                                                    <div style={{ display: 'flex', gap: 12 }}>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                // TODO: trigger AI generation flow for this heading
+                                                                console.log('Generate questions for', heading);
+                                                            }}
+                                                            style={{
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                gap: 6,
+                                                                background: '#111827',
+                                                                color: '#fff',
+                                                                border: '1px solid #E9EAEB',
+                                                                padding: '8px 14px',
+                                                                borderRadius: 24,
+                                                                cursor: 'pointer',
+                                                                fontSize: 14,
+                                                                fontWeight: 700
+                                                            }}
+                                                        >
+                                                            <img src="/icons/sparklewhite.svg" alt="" width={16} height={16} />
+                                                            <span>Generate questions</span>
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                // TODO: manually add question for this heading
+                                                                console.log('Manually add question for', heading);
+                                                            }}
+                                                            style={{
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                gap: 6,
+                                                                background: '#fff',
+                                                                color: '#414651',
+                                                                border: '1px solid #D5D7DA',
+                                                                padding: '8px 14px',
+                                                                borderRadius: 24,
+                                                                cursor: 'pointer',
+                                                                fontSize: 14,
+                                                                fontWeight: 700
+                                                            }}
+                                                        >
+                                                            <img src="/icons/circleplus.svg" alt="" width={16} height={16} />
+                                                            <span>Manual add</span>
+                                                        </button>
+                                                    </div>
+                                                </div>
                                             </div>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                                <label className="switch" style={{ display: "flex", alignItems: "center", margin: 0 }}>
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={requireVideo}
-                                                        onChange={() => setRequireVideo(v => !v)}
-                                                    />
-                                                    <span className="slider round"></span>
-                                                </label>
-                                                <span>{requireVideo ? "Yes" : "No"}</span>
-                                            </div>
-
-                                        </div>
-                                    </div>
-
-                                    {/* Divider */}
-                                    <div style={{ width: "100%", height: 1, background: "#E9EAEB", marginTop: 24, marginBottom: 24 }}></div>
-
-                                    {/* AI Interview Secret Prompt */}
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, height: 250 }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                            <img src="/icons/sparkle.svg" alt="sparkle" width={19} height={19} />
-                                            <span style={{ fontSize: 14, fontWeight: 700, color: '#181D27' }}>AI Interview Secret Prompt <span style={{ fontWeight: 500, color: '#717680' }}>(optional)</span></span>
-                                            <span title="These prompts remain hidden from candidates and the public job portal. Additionally, only Admins and the Job Owner can view the secret prompt." style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 18, height: 18, borderRadius: '50%', border: '1px solid #D0D5DD', color: '#667085', fontSize: 12, cursor: 'help' }}>i</span>
-                                        </div>
-                                        <div style={{ fontSize: 14, fontWeight: 500, color: '#667085' }}>
-                                            Secret Prompts give you extra control over Jia’s evaluation style, complementing her accurate assessment of requirements from the job description.
-                                        </div>
-                                        <textarea
-                                            ref={secretPromptRef}
-                                            value={secretPrompt}
-                                            onChange={(e) => {
-                                                let v = e.target.value;
-                                                if (v.length > 0 && !v.startsWith('• ')) {
-                                                    v = '• ' + v;
-                                                }
-                                                setSecretPrompt(v);
-                                            }}
-                                            onKeyDown={(e) => {
-                                                const ta = e.currentTarget as HTMLTextAreaElement;
-                                                if (e.key === 'Enter' && !e.shiftKey) {
-                                                    e.preventDefault();
-                                                    const start = ta.selectionStart ?? 0;
-                                                    const end = ta.selectionEnd ?? start;
-                                                    const before = secretPrompt.slice(0, start);
-                                                    const after = secretPrompt.slice(end);
-                                                    const insert = '\n• ';
-                                                    const next = before + insert + after;
-                                                    setSecretPrompt(next);
-                                                    // place caret after inserted bullet
-                                                    requestAnimationFrame(() => {
-                                                        const t = secretPromptRef.current;
-                                                        if (t) {
-                                                            const pos = start + insert.length;
-                                                            t.selectionStart = pos;
-                                                            t.selectionEnd = pos;
-                                                            t.focus();
-                                                        }
-                                                    });
-                                                }
-                                                // Shift+Enter or natural wrapping: let browser handle default (no extra bullet)
-                                            }}
-                                            placeholder="Enter a secret prompt (e.g. Treat candidates who speak in Taglish, English, or Tagalog equally. Focus on clarity, coherence, and confidence rather than language preference or accent.)"
-                                            className="form-control nwz-input"
-                                            style={{ padding: '10px 14px', minHeight: 120, resize: 'vertical', whiteSpace: 'pre-wrap', height: 50 }}
-                                        />
-                                    </div>
+                                            {idx < arr.length - 1 && (
+                                                <div style={{ width: '100%', height: 1, background: '#E9EAEB' }} />
+                                            )}
+                                        </React.Fragment>
+                                    ))}
                                 </div>
                             </div>
                         </div>
