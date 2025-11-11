@@ -2,7 +2,7 @@ import axios from "axios";
 import { toast } from "react-toastify";
 import Swal from "sweetalert2";
 
-export const CORE_API_URL = process.env.NEXT_PUBLIC_CORE_API_URL || "http://localhost:4000";
+export const CORE_API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
 export function validateEmail(email) {
   const emailRegex = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
@@ -518,33 +518,33 @@ export async function deleteCareer(careerId: string) {
 
 export const applicantStatusFormatMap = {
   "Ongoing": {
-      border: "1px solid #FEDF89",
-      backgroundColor: "#FFFAEB",
-      color: "#B54708",
-      dotColor: "#F79009"
+    border: "1px solid #FEDF89",
+    backgroundColor: "#FFFAEB",
+    color: "#B54708",
+    dotColor: "#F79009"
   },
   "Dropped": {
-      border: "1px solid #FECDCA",
-      backgroundColor: "#FEF3F2",
-      color: "#B32318",
-      dotColor: "#F04438"
+    border: "1px solid #FECDCA",
+    backgroundColor: "#FEF3F2",
+    color: "#B32318",
+    dotColor: "#F04438"
   },
   "Cancelled": {
-      border: "1px solid #FECDCA",
-      backgroundColor: "#FEF3F2",
-      color: "#B32318",
-      dotColor: "#F04438"
+    border: "1px solid #FECDCA",
+    backgroundColor: "#FEF3F2",
+    color: "#B32318",
+    dotColor: "#F04438"
   },
   "Hired": {
-      border: "1px solid #10B981",
-      backgroundColor: "#ECFDF3",
-      color: "#047857",
-      dotColor: "#12B76A"
+    border: "1px solid #10B981",
+    backgroundColor: "#ECFDF3",
+    color: "#047857",
+    dotColor: "#12B76A"
   },
   "No CV Uploaded": {
-      border: "1px solid #E9EAEB",
-      backgroundColor: "#F5F5F5",
-      color: "#414651",
+    border: "1px solid #E9EAEB",
+    backgroundColor: "#F5F5F5",
+    color: "#414651",
   }
 }
 
@@ -584,9 +584,8 @@ export const getInvitationEmailTemplate = (
       </p>
       
       <p style="font-size: 16px; line-height: 1.6; color: #333333; margin-bottom: 20px;">
-        We are pleased to invite you to join <strong>${orgName}</strong> on Jia as a <strong>${
-  role.charAt(0).toUpperCase() + role.slice(1)
-}</strong>. Your expertise and contribution will be valuable to our team.
+        We are pleased to invite you to join <strong>${orgName}</strong> on Jia as a <strong>${role.charAt(0).toUpperCase() + role.slice(1)
+  }</strong>. Your expertise and contribution will be valuable to our team.
       </p>
       
       <p style="font-size: 16px; line-height: 1.6; color: #333333; margin-bottom: 30px;">
