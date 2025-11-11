@@ -55,7 +55,7 @@ export async function signInWithGoogle(type) {
   });
 
   axios
-    .post(`$/api/auth`, {
+    .post(`/api/auth`, {
       name: profile.name,
       email: profile.email,
       image: profile.picture,
