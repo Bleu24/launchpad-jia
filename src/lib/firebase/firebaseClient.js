@@ -21,6 +21,8 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
+const BASE_URL = process.env.NEXT_PUBLIC_CORE_API_URL || "";
+
 // Initialize Firebase
 if (!firebase.apps.length) {
   firebase.initializeApp(firebaseConfig);
@@ -54,7 +56,7 @@ export async function signInWithGoogle(type) {
   });
 
   axios
-    .post("/api/auth", {
+    .post(`${BASE_URL}/api/auth`, {
       name: profile.name,
       email: profile.email,
       image: profile.picture,
@@ -211,11 +213,10 @@ export function signInWithMicrosoft() {
 
       loadingToast("Logging in.");
       axios
-        .post("/api/auth", {
+        .post(`${BASE_URL}/api/auth`, {
           name: profile.email.split("@")[0],
           email: profile.email,
-          image: `https://api.dicebear.com/8.x/shapes/svg?seed=${
-            profile.email.split("@")[0]
+          image: `https://api.dicebear.com/8.x/shapes/svg?seed=${profile.email.split("@")[0]
             }`,
         })
         .then((res) => {
