@@ -16,6 +16,7 @@ import FullPageLoader from "@/lib/components/Loaders/FullPageLoader";
 import ErrorBoundary from "@/lib/components/ErrorBoundary";
 import { ParallaxProvider } from "react-scroll-parallax";
 import { assetConstants } from "@/lib/utils/constantsV2";
+import "@/lib/axiosSetup";
 
 export default function ({ children }) {
   useEffect(() => {
