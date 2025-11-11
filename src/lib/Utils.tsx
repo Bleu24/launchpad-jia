@@ -2,7 +2,7 @@ import axios from "axios";
 import { toast } from "react-toastify";
 import Swal from "sweetalert2";
 
-export const CORE_API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+export const CORE_API_URL = process.env.NEXT_PUBLIC_CORE_API_URL || "http://localhost:4000";
 
 export function validateEmail(email) {
   const emailRegex = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
