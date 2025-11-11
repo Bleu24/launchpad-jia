@@ -69,6 +69,7 @@ type PreScreenQuestion = {
 
 export default function NewCareerWizard() {
     const { user, orgID } = useAppContext();
+    const DRAFT_KEY = 'new_career_wizard_draft_v1';
     const StepIcon = ({ active }: { active: boolean }) => (
         <svg width="17" height="17" viewBox="0 0 17 17" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path
@@ -98,8 +99,10 @@ export default function NewCareerWizard() {
     const [requireVideo, setRequireVideo] = useState(true);
     const [questions, setQuestions] = useState(defaultQuestions);
     const [preScreeningQuestions, setPreScreeningQuestions] = useState<PreScreenQuestion[]>([]);
-    const [secretPrompt, setSecretPrompt] = useState("");
+    const [secretPrompt, setSecretPrompt] = useState(""); // AI Interview Secret Prompt
+    const [cvSecretPrompt, setCvSecretPrompt] = useState("");
     const secretPromptRef = useRef<HTMLTextAreaElement | null>(null);
+    const cvSecretPromptRef = useRef<HTMLTextAreaElement | null>(null);
     const [salaryNegotiable, setSalaryNegotiable] = useState(true);
     const [minimumSalary, setMinimumSalary] = useState<string | number>("");
     const [maximumSalary, setMaximumSalary] = useState<string | number>("");
@@ -115,6 +118,55 @@ export default function NewCareerWizard() {
     const [aiIntroMessage, setAiIntroMessage] = useState('');
     const [aiEvaluationFocus, setAiEvaluationFocus] = useState<string[]>([]);
     const [aiAdditionalNotes, setAiAdditionalNotes] = useState('');
+    const [pipelineStages, setPipelineStages] = useState<any[]>([
+        {
+            id: guid(),
+            title: 'CV Screening',
+            core: true,
+            icon: 'cv',
+            substages: [
+                { id: guid(), label: 'Waiting Submission', automated: true },
+                { id: guid(), label: 'For Review', automated: false },
+            ],
+        },
+        {
+            id: guid(),
+            title: 'AI Interview',
+            core: true,
+            icon: 'ai',
+            substages: [
+                { id: guid(), label: 'Waiting Interview', automated: true },
+                { id: guid(), label: 'For Review', automated: false },
+            ],
+        },
+        {
+            id: guid(),
+            title: 'Final Human Interview',
+            core: true,
+            icon: 'human',
+            substages: [
+                { id: guid(), label: 'Waiting Schedule', automated: true },
+                { id: guid(), label: 'Waiting Interview', automated: false },
+                { id: guid(), label: 'For Review', automated: false },
+            ],
+        },
+        {
+            id: guid(),
+            title: 'Job Offer',
+            core: true,
+            icon: 'offer',
+            substages: [
+                { id: guid(), label: 'For Final Review', automated: false },
+                { id: guid(), label: 'Waiting Offer Acceptance', automated: true },
+                { id: guid(), label: 'For Contract Signing', automated: false },
+                { id: guid(), label: 'Hired', automated: false },
+            ],
+        },
+    ]);
+    const [revOpenDetails, setRevOpenDetails] = useState(true);
+    const [revOpenCV, setRevOpenCV] = useState(true);
+    const [revOpenAI, setRevOpenAI] = useState(true);
+    const [revOpenPipeline, setRevOpenPipeline] = useState(true);
 
     const toggleFocus = (tag: string) => {
         setAiEvaluationFocus(list => list.includes(tag) ? list.filter(t => t !== tag) : [...list, tag]);
@@ -133,6 +185,10 @@ export default function NewCareerWizard() {
     const [submitting, setSubmitting] = useState(false);
     const [attemptedContinue, setAttemptedContinue] = useState(false);
     const submittedRef = useRef(false);
+    const [generatingAll, setGeneratingAll] = useState(false);
+    const [generatingCat, setGeneratingCat] = useState<string | null>(null);
+    const [hasDraft, setHasDraft] = useState(false);
+    const [careerId, setCareerId] = useState<string | null>(null);
 
     useEffect(() => {
         // Initialize locations with provinces and full city list (no preselection)
@@ -142,6 +198,46 @@ export default function NewCareerWizard() {
         setProvince("");
         setCityList(philippineLocations.cities as any[]);
         setCity("");
+    }, []);
+
+    // Hydrate draft from localStorage if present
+    useEffect(() => {
+        try {
+            const raw = localStorage.getItem(DRAFT_KEY);
+            if (!raw) return;
+            const d = JSON.parse(raw || '{}');
+            if (!d) return;
+            setJobTitle(d.jobTitle ?? "");
+            setDescription(d.description ?? "");
+            setEmploymentType(d.employmentType ?? "");
+            setWorkSetup(d.workSetup ?? "");
+            setWorkSetupRemarks(d.workSetupRemarks ?? "");
+            setScreeningSetting(d.screeningSetting ?? 'Good Fit and Above');
+            setPreScreeningQuestions(d.preScreeningQuestions ?? []);
+            setRequireVideo(!!d.requireVideo);
+            setQuestions(d.questions ?? defaultQuestions);
+            setSalaryNegotiable(!!d.salaryNegotiable);
+            setMinimumSalary(d.minimumSalary ?? "");
+            setMaximumSalary(d.maximumSalary ?? "");
+            setCountry(d.country ?? 'Philippines');
+            setProvince(d.province ?? "");
+            setCity(d.location ?? "");
+            setAiLanguage(d.aiLanguage ?? 'English');
+            setAiVoice(d.aiVoice ?? 'Neutral Female');
+            setInterviewDuration(d.interviewDuration ?? 30);
+            setAiIntroMessage(d.aiIntroMessage ?? '');
+            setAiEvaluationFocus(d.aiEvaluationFocus ?? []);
+            setAiAdditionalNotes(d.aiAdditionalNotes ?? '');
+            setPipelineStages(d.pipelineStages ?? []);
+            setCvSecretPrompt(d.cvSecretPrompt ?? "");
+            setSecretPrompt(d.secretPrompt ?? "");
+            setCareerId(d.careerId ?? null);
+            setHasDraft(true);
+            if (typeof d.lastVisitedStep === 'number') {
+                setCurrentStep(Math.max(0, Math.min(d.lastVisitedStep, (steps?.length ?? 1) - 1)));
+            }
+        } catch { /* ignore */ }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     useEffect(() => {
@@ -179,17 +275,23 @@ export default function NewCareerWizard() {
 
     // Step 3 (AI Interview Setup) requirement: at least one question per category
     const allCategoriesHaveAtLeastOne = useMemo(() => {
-        const total = questions.reduce((sum, cat) => sum + (cat.questions?.length || 0), 0);
-        const remaining = 5 - total;
-        return { status: total >= 5, remaining };
+        const nonEmptyTotal = questions.reduce((sum, cat) => {
+            const count = (cat.questions || []).filter((q: any) => {
+                const t = String(q.text ?? q.prompt ?? '').trim();
+                return t.length > 0;
+            }).length;
+            return sum + count;
+        }, 0);
+        const remaining = Math.max(0, 5 - nonEmptyTotal);
+        return { status: nonEmptyTotal >= 5, remaining };
     }, [questions]);
 
     // Generic gate for current step
     const canProceedCurrentStep = useMemo(() => {
         if (currentStep === 0) return canProceedStep1;
-        if (currentStep === 2) return allCategoriesHaveAtLeastOne; // enforce per-category questions before leaving Step 2
+        if (currentStep === 2) return allCategoriesHaveAtLeastOne.status; // enforce per-category questions before leaving Step 2
         return true; // other steps currently have no gating rules
-    }, [currentStep, canProceedStep1, allCategoriesHaveAtLeastOne]);
+    }, [currentStep, canProceedStep1, allCategoriesHaveAtLeastOne.status]);
 
     const isInvalid = (val: string) => attemptedContinue && val.trim().length === 0;
 
@@ -203,9 +305,9 @@ export default function NewCareerWizard() {
     const showCurrentAlert = useMemo(() => {
         if (!attemptedContinue) return false;
         if (currentStep === 0) return pageIncomplete;
-        if (currentStep === 2) return !allCategoriesHaveAtLeastOne;
+        if (currentStep === 2) return !allCategoriesHaveAtLeastOne.status;
         return false;
-    }, [attemptedContinue, currentStep, pageIncomplete, allCategoriesHaveAtLeastOne]);
+    }, [attemptedContinue, currentStep, pageIncomplete, allCategoriesHaveAtLeastOne.status]);
 
     const addMember = (email: string, role: TeamMember['role'] = 'Contributor') => {
         if (!email) return;
@@ -235,7 +337,7 @@ export default function NewCareerWizard() {
 
     const hasJobOwner = useMemo(() => teamMembers.some((m) => m.role === "Job Owner"), [teamMembers]);
 
-    // Persist career draft only when user explicitly clicks a publish/save action (not on step continue)
+    // Persist career only when user explicitly clicks publish/save
     const handleSave = async (status: "inactive" | "active") => {
         if (submittedRef.current) return;
         if (Number(minimumSalary) && Number(maximumSalary) && Number(minimumSalary) > Number(maximumSalary)) {
@@ -246,7 +348,7 @@ export default function NewCareerWizard() {
             setSubmitting(true);
             submittedRef.current = true;
             const userInfo = user ? { image: user.image, name: user.name, email: user.email } : undefined;
-            const payload = {
+            const basePayload: any = {
                 jobTitle,
                 description,
                 workSetup,
@@ -256,8 +358,10 @@ export default function NewCareerWizard() {
                 createdBy: userInfo,
                 screeningSetting,
                 orgID,
-                requireVideo: true,
-                cvSecretPrompt: secretPrompt || undefined,
+                requireVideo,
+                cvSecretPrompt: cvSecretPrompt || undefined,
+                aiSecretPrompt: secretPrompt || undefined,
+                lastVisitedStep: currentStep,
                 preScreeningQuestions:
                     preScreeningQuestions.length > 0
                         ? preScreeningQuestions.map((q) => ({
@@ -275,10 +379,62 @@ export default function NewCareerWizard() {
                 location: city,
                 status,
                 employmentType,
+                // AI Setup
+                aiLanguage,
+                aiVoice,
+                interviewDuration,
+                aiIntroMessage,
+                aiEvaluationFocus,
+                aiAdditionalNotes,
+                // Pipeline
+                pipelineStages,
             };
-
-            const res = await axios.post("/api/add-career", payload);
-            if (res.status === 200) {
+            let res;
+            if (careerId) {
+                // Update existing draft or publish existing
+                res = await axios.post("/api/update-career", { _id: careerId, ...basePayload });
+            } else {
+                // Create new draft/published
+                res = await axios.post("/api/add-career", basePayload);
+            }
+            if (res && res.status === 200) {
+                // Capture ID
+                const newId = (res.data && (res.data._id || res.data.id || (res.data.data && (res.data.data._id || res.data.data.id)))) || careerId || null;
+                if (newId && newId !== careerId) setCareerId(newId);
+                // Persist draft snapshot locally so user can resume last step later
+                try {
+                    const draft = {
+                        jobTitle,
+                        description,
+                        employmentType,
+                        workSetup,
+                        workSetupRemarks,
+                        screeningSetting,
+                        requireVideo,
+                        questions,
+                        preScreeningQuestions,
+                        salaryNegotiable,
+                        minimumSalary,
+                        maximumSalary,
+                        country,
+                        province,
+                        location: city,
+                        aiLanguage,
+                        aiVoice,
+                        interviewDuration,
+                        aiIntroMessage,
+                        aiEvaluationFocus,
+                        aiAdditionalNotes,
+                        pipelineStages,
+                        cvSecretPrompt,
+                        secretPrompt,
+                        careerId: newId || careerId,
+                        lastVisitedStep: currentStep,
+                        ts: Date.now(),
+                    };
+                    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+                    setHasDraft(true);
+                } catch { /* ignore */ }
                 candidateActionToast(
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: 8 }}>
                         <span style={{ fontSize: 14, fontWeight: 700, color: "#181D27" }}>Career saved</span>
@@ -286,6 +442,10 @@ export default function NewCareerWizard() {
                     1300,
                     <i className="la la-check-circle" style={{ color: "#039855", fontSize: 32 }}></i>
                 );
+                if (status === 'active') {
+                    try { localStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
+                    setHasDraft(false);
+                }
                 setTimeout(() => {
                     window.location.href = "/recruiter-dashboard/careers";
                 }, 1300);
@@ -299,15 +459,243 @@ export default function NewCareerWizard() {
         }
     };
 
-    // Advance to next wizard step without saving when form is valid
-    const handleContinue = () => {
+    const getSafeRichHtml = (input: string): string => {
+        if (!input) return '';
+        const sanitized = sanitizeRichHtml(input);
+        if (sanitized && sanitized.trim().length > 0) return sanitized;
+        // Fallback 1: decoded, minimally processed HTML (entity decoding only)
+        let decoded = '';
+        try {
+            const ta = document.createElement('textarea');
+            ta.innerHTML = String(input);
+            decoded = ta.value;
+        } catch {
+            decoded = String(input)
+                .replace(/&lt;/g, '<')
+                .replace(/&gt;/g, '>')
+                .replace(/&amp;/g, '&')
+                .replace(/&quot;/g, '"')
+                .replace(/&#39;/g, "'");
+        }
+        if (decoded && decoded.trim().length > 0) return decoded;
+        // Fallback 2: plain text
+        return stripHtml(input);
+    };
+
+    // Only advance to next step; do NOT autosave here
+    const handleContinue = async () => {
         // Determine gating for current step
         if (!canProceedCurrentStep) {
             setAttemptedContinue(true);
             return;
         }
+        // Move to next step
         setAttemptedContinue(false);
         setCurrentStep(prev => (prev < steps.length - 1 ? prev + 1 : prev));
+    };
+
+    const normalizeCategory = (h: string) => (h === 'Behavioural' ? 'Behavioral' : h);
+    const extractArrayFromLLM = (raw: string): string[] => {
+        if (!raw) return [];
+        let t = String(raw).trim();
+        if (t.startsWith('```')) {
+            t = t.replace(/^```[a-zA-Z]*\n?/, '').replace(/```\s*$/, '').trim();
+        }
+        const match = t.match(/\[[\s\S]*\]/);
+        if (match) {
+            try {
+                const val = JSON.parse(match[0]);
+                if (Array.isArray(val)) return val.map((x) => String(x));
+            } catch { }
+        }
+        try {
+            const val = JSON.parse(t);
+            if (Array.isArray(val)) return val.map((x) => String(x));
+        } catch { }
+        return t
+            .split('\n')
+            .map((s) => s.replace(/^[\-\*\d\.\s\"]+/, '').replace(/[\"]+$/, '').trim())
+            .filter(Boolean);
+    };
+    const stripHtml = (s: string): string => {
+        if (!s) return '';
+        let t = String(s);
+        t = t.replace(/<br\s*\/?>(?=\s|$)/gi, '\n');
+        t = t.replace(/<\/p>/gi, '\n\n');
+        t = t.replace(/<p[^>]*>/gi, '');
+        t = t.replace(/<[^>]+>/g, '');
+        return t.trim();
+    };
+    const sanitizeRichHtml = (input: string): string => {
+        if (!input) return '';
+        let html = String(input);
+        // First decode common HTML entities to real tags/text
+        try {
+            const ta = document.createElement('textarea');
+            ta.innerHTML = html;
+            html = ta.value;
+        } catch {
+            html = html
+                .replace(/&lt;/g, '<')
+                .replace(/&gt;/g, '>')
+                .replace(/&amp;/g, '&')
+                .replace(/&quot;/g, '"')
+                .replace(/&#39;/g, "'");
+        }
+        // On SSR, avoid DOM APIs and return a stripped fallback to prevent raw HTML showing
+        if (typeof window === 'undefined') {
+            return stripHtml(html);
+        }
+        try {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            const allowedTags = new Set([
+                'div', 'p', 'br', 'strong', 'b', 'em', 'i', 'u', 'span', 'ul', 'ol', 'li', 'a', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'code', 'pre'
+            ]);
+            const allowedAttrs: Record<string, Set<string>> = {
+                a: new Set(['href', 'title']),
+                '*': new Set(['class'])
+            };
+            const allowedStyleProps = new Set(['text-align', 'font-weight', 'font-style', 'text-decoration']);
+            const walk = (node: Node) => {
+                if (node.nodeType === 1) {
+                    const el = node as HTMLElement;
+                    const tag = el.tagName.toLowerCase();
+                    if (!allowedTags.has(tag)) {
+                        const parent = el.parentNode;
+                        if (parent) {
+                            while (el.firstChild) parent.insertBefore(el.firstChild, el);
+                            parent.removeChild(el);
+                        }
+                        return;
+                    }
+                    const attrs = Array.from(el.attributes);
+                    for (const attr of attrs) {
+                        const name = attr.name.toLowerCase();
+                        if (name.startsWith('on')) { el.removeAttribute(attr.name); continue; }
+                        if (name === 'style') {
+                            // keep only whitelisted style props
+                            const style = el.getAttribute('style') || '';
+                            const safeParts: string[] = [];
+                            style.split(';').forEach((decl) => {
+                                const [prop, val] = decl.split(':');
+                                if (!prop || !val) return;
+                                const p = prop.trim().toLowerCase();
+                                if (allowedStyleProps.has(p)) safeParts.push(`${p}: ${val.trim()}`);
+                            });
+                            if (safeParts.length) el.setAttribute('style', safeParts.join('; ')); else el.removeAttribute('style');
+                            continue;
+                        }
+                        const allowForTag = allowedAttrs[tag] || allowedAttrs['*'];
+                        if (allowForTag && allowForTag.has(name)) {
+                            if (tag === 'a' && name === 'href') {
+                                const v = el.getAttribute('href') || '';
+                                if (!/^(https?:|mailto:|tel:)/i.test(v)) el.setAttribute('href', '#');
+                            }
+                            continue;
+                        }
+                        // remove non-allowed attrs
+                        el.removeAttribute(attr.name);
+                    }
+                }
+                let child = node.firstChild;
+                while (child) {
+                    const next = child.nextSibling;
+                    walk(child);
+                    child = next;
+                }
+            };
+            walk(doc.body);
+            const sanitized = doc.body.innerHTML;
+            return sanitized;
+        } catch {
+            return '';
+        }
+    };
+    const runGenerate = async (catHeading: string): Promise<string[]> => {
+        const catName = normalizeCategory(catHeading);
+        const systemPrompt = "You are an expert interviewer for recruiting. Write concise, skill-focused interview questions tailored to the role. Use the category only as a thematic lens. Avoid years-of-experience requirements, generic fluff, or restating the job description. Return only a JSON array of strings.";
+        const prompt = `Context\n- Role: ${jobTitle || '(no title provided)'}\n- Description: ${description || '(no description provided)'}\n- Theme: ${catName}\n\nInstructions\n- Treat the theme as guidance for the type of skills or behaviors to probe.\n- Do not mention the words \'category\' or \'theme\'.\n- Avoid asking about specific numbers of years of experience.\n- Keep each question under 25 words.\n\nOutput\nReturn exactly 3 tailored interview questions as a JSON array of strings, with no extra text.`;
+        const res = await fetch('/api/llm-engine', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ systemPrompt, prompt })
+        });
+        const data = await res.json();
+        const arr = extractArrayFromLLM(data.result || '');
+        return arr;
+    };
+    const totalAiQuestions = useMemo(() => (
+        (questions || []).reduce((sum, cat: any) => sum + ((cat?.questions || []).filter((q: any) => String(q.text ?? q.prompt ?? '').trim().length > 0).length), 0)
+    ), [questions]);
+    const hasAnyInputForStep = (idx: number): boolean => {
+        if (idx === 0) {
+            return [jobTitle, description, employmentType, workSetup, province, city].some((v) => String(v || '').trim().length > 0);
+        }
+        if (idx === 1) {
+            const hasPrompt = String(cvSecretPrompt || '').trim().length > 0;
+            const hasPre = (preScreeningQuestions || []).length > 0;
+            return hasPrompt || hasPre;
+        }
+        if (idx === 2) {
+            return totalAiQuestions > 0;
+        }
+        if (idx === 3) {
+            return (pipelineStages || []).length > 0;
+        }
+        return false;
+    };
+    const getStepProgress = (idx: number): 0 | 0.5 | 1 => {
+        if (idx === 0) {
+            const filled = [jobTitle, description, employmentType, workSetup, province, city].filter((v) => String(v || '').trim().length > 0).length;
+            if (filled === 0) return 0;
+            if (filled >= 6) return 1;
+            return 0.5;
+        }
+        if (idx === 1) {
+            const a = String(cvSecretPrompt || '').trim().length > 0 ? 1 : 0;
+            const b = (preScreeningQuestions || []).length > 0 ? 1 : 0;
+            const filled = a + b;
+            if (filled === 0) return 0;
+            if (filled >= 2) return 1;
+            return 0.5;
+        }
+        if (idx === 2) {
+            if (totalAiQuestions === 0) return 0;
+            if (totalAiQuestions >= 5) return 1;
+            return 0.5;
+        }
+        if (idx === 3) {
+            return 1;
+        }
+        return 0;
+    };
+    const generateCategoryQuestions = async (catHeading: string) => {
+        try {
+            setGeneratingCat(catHeading);
+            const catName = normalizeCategory(catHeading);
+            const arr = await runGenerate(catHeading);
+            const items = arr.map((s: string) => ({ id: guid(), text: s, prompt: s }));
+            setQuestions(list => list.map(c => c.category === catName ? { ...c, questions: [...(c.questions || []), ...items] } : c));
+        } finally {
+            setGeneratingCat(null);
+        }
+    };
+
+    const handleGenerateAll = async () => {
+        try {
+            setGeneratingAll(true);
+            const heads = ["CV Validation / Experience", "Technical", "Behavioural", "Analytical", "Others"];
+            for (const h of heads) {
+                const catName = normalizeCategory(h);
+                const arr = await runGenerate(h);
+                const items = arr.map((s: string) => ({ id: guid(), text: s, prompt: s }));
+                setQuestions(list => list.map(c => c.category === catName ? { ...c, questions: [...(c.questions || []), ...items] } : c));
+            }
+
+        } finally {
+            setGeneratingAll(false);
+        }
     };
 
     return (
@@ -355,7 +743,12 @@ export default function NewCareerWizard() {
             {/* Header row */}
             <div style={{ marginBottom: 24, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
-                    <h1 style={{ fontSize: 24, fontWeight: 550, color: "#111827" }}>Add new career</h1>
+                    <h1 style={{ fontSize: 24, fontWeight: 550, color: "#111827" }}>
+                        {hasDraft && (
+                            <span style={{ color: "#667085", marginRight: 8 }}>[Draft]</span>
+                        )}
+                        {jobTitle.trim().length > 0 ? jobTitle : "Add new careers"}
+                    </h1>
                 </div>
                 <div style={{ display: "flex", gap: 8, alignItems: 'center' }}>
                     {currentStep > 0 && (
@@ -368,22 +761,300 @@ export default function NewCareerWizard() {
                             Back
                         </button>
                     )}
+                    {/* moved pipeline block below AI setup */}
+                    {false && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, width: '100%' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 260 }}>
+                                    <span style={{ fontSize: 16, fontWeight: 700, color: '#181D27' }}>Customize pipeline stages</span>
+                                    <span style={{ fontSize: 14, fontWeight: 500, color: '#667085' }}>Create, modify, reorder, and delete stages and sub-stages. Core stages are fixed and cannot be moved.</span>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                                    <button
+                                        type="button"
+                                        onClick={() => setPipelineStages([
+                                            {
+                                                id: guid(), title: 'CV Screening', core: true, icon: 'cv',
+                                                substages: [
+                                                    { id: guid(), label: 'Waiting Submission', automated: true },
+                                                    { id: guid(), label: 'For Review', automated: false },
+                                                ]
+                                            },
+                                            {
+                                                id: guid(), title: 'AI Interview', core: true, icon: 'ai',
+                                                substages: [
+                                                    { id: guid(), label: 'Waiting Interview', automated: true },
+                                                    { id: guid(), label: 'For Review', automated: false },
+                                                ]
+                                            },
+                                            {
+                                                id: guid(), title: 'Final Human Interview', core: true, icon: 'human',
+                                                substages: [
+                                                    { id: guid(), label: 'Waiting Schedule', automated: true },
+                                                    { id: guid(), label: 'Waiting Interview', automated: false },
+                                                    { id: guid(), label: 'For Review', automated: false },
+                                                ]
+                                            },
+                                            {
+                                                id: guid(), title: 'Job Offer', core: true, icon: 'offer',
+                                                substages: [
+                                                    { id: guid(), label: 'For Final Review', automated: false },
+                                                    { id: guid(), label: 'Waiting Offer Acceptance', automated: true },
+                                                    { id: guid(), label: 'For Contract Signing', automated: false },
+                                                    { id: guid(), label: 'Hired', automated: false },
+                                                ]
+                                            },
+                                        ])}
+                                        style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#fff', color: '#111827', border: '1px solid #D5D7DA', padding: '8px 12px', borderRadius: 24, cursor: 'pointer', fontWeight: 700 }}
+                                    >
+                                        <span>Restore to default</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => console.log('Copy pipeline from existing job')}
+                                        style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#fff', color: '#111827', border: '1px solid #D5D7DA', padding: '8px 12px', borderRadius: 24, cursor: 'pointer', fontWeight: 700 }}
+                                    >
+                                        <span>Copy pipeline from existing job</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'stretch', gap: 16, overflowX: 'auto', paddingBottom: 8, width: '100%' }}>
+                                {pipelineStages.map((stage) => (
+                                    <div key={stage.id} style={{ minWidth: 280, background: '#fff', border: '1px dashed #D5D9EB', borderRadius: 16, padding: 12, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#667085', fontSize: 12, fontWeight: 600 }}>
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ stroke: '#667085', strokeWidth: 1.5 }}>
+                                                <path d="M12 17a2 2 0 0 0 2-2v-3a2 2 0 1 0-4 0v3a2 2 0 0 0 2 2Z" />
+                                                <path d="M17 9V7a5 5 0 0 0-10 0v2" />
+                                            </svg>
+                                            <span>Core stage, cannot move</span>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#EEF2FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                    {stage.icon === 'ai' && (
+                                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ stroke: '#111827', strokeWidth: 1.6 }}>
+                                                            <path d="M12 1v22M5 8h14M7 17h10" />
+                                                        </svg>
+                                                    )}
+                                                    {stage.icon === 'cv' && (
+                                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ stroke: '#111827', strokeWidth: 1.6 }}>
+                                                            <path d="M6 2h9l5 5v15a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Zm9 0v5h5" />
+                                                        </svg>
+                                                    )}
+                                                    {stage.icon === 'human' && (
+                                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ stroke: '#111827', strokeWidth: 1.6 }}>
+                                                            <path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5Zm7 9a7 7 0 0 0-14 0" />
+                                                        </svg>
+                                                    )}
+                                                    {stage.icon === 'offer' && (
+                                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ stroke: '#111827', strokeWidth: 1.6 }}>
+                                                            <path d="M3 7h18M7 7v-2a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-12" />
+                                                        </svg>
+                                                    )}
+                                                </div>
+                                                <span style={{ fontSize: 16, fontWeight: 700, color: '#181D27' }}>{stage.title}</span>
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ stroke: '#98A2B3', strokeWidth: 1.6 }}>
+                                                    <path d="M12 5.5v.01M12 12v.01M12 18.5v.01" />
+                                                </svg>
+                                            </div>
+                                        </div>
+                                        <div style={{ fontSize: 13, fontWeight: 600, color: '#667085' }}>Substages</div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                            {stage.substages.map((ss: any) => (
+                                                <div key={ss.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid #EAECF5', borderRadius: 22, padding: '10px 12px', background: '#fff' }}>
+                                                    <span style={{ fontSize: 14, fontWeight: 700, color: '#181D27' }}>{ss.label}</span>
+                                                    <div style={{ width: 22, height: 22, borderRadius: '50%', border: '1px solid #EAECF5', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F9FAFB' }}>
+                                                        {ss.automated ? (
+                                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ stroke: '#111827', strokeWidth: 1.8 }}>
+                                                                <path d="M13 2L3 14h7l-1 8 10-12h-7l1-8Z" />
+                                                            </svg>
+                                                        ) : (
+                                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ stroke: '#98A2B3', strokeWidth: 1.8 }}>
+                                                                <path d="M9 18l6-6-6-6" />
+                                                            </svg>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))}
+                                <div style={{ minWidth: 80, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <button
+                                        type="button"
+                                        onClick={() => setPipelineStages(list => [...list, { id: guid(), title: 'New Stage', core: false, icon: 'ai', substages: [] }])}
+                                        style={{ width: 56, height: 56, borderRadius: 16, border: '1px solid #D5D9EB', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                                    >
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ stroke: '#111827', strokeWidth: 1.8 }}>
+                                            <path d="M12 5v14M5 12h14" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                    {false && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                    <span style={{ fontSize: 16, fontWeight: 700, color: '#181D27' }}>Customize pipeline stages</span>
+                                    <span style={{ fontSize: 14, fontWeight: 500, color: '#667085' }}>Create, modify, reorder, and delete stages and sub-stages. Core stages are fixed and cannot be moved.</span>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <button
+                                        type="button"
+                                        onClick={() => setPipelineStages([
+                                            {
+                                                id: guid(), title: 'CV Screening', core: true, icon: 'cv',
+                                                substages: [
+                                                    { id: guid(), label: 'Waiting Submission', automated: true },
+                                                    { id: guid(), label: 'For Review', automated: false },
+                                                ]
+                                            },
+                                            {
+                                                id: guid(), title: 'AI Interview', core: true, icon: 'ai',
+                                                substages: [
+                                                    { id: guid(), label: 'Waiting Interview', automated: true },
+                                                    { id: guid(), label: 'For Review', automated: false },
+                                                ]
+                                            },
+                                            {
+                                                id: guid(), title: 'Final Human Interview', core: true, icon: 'human',
+                                                substages: [
+                                                    { id: guid(), label: 'Waiting Schedule', automated: true },
+                                                    { id: guid(), label: 'Waiting Interview', automated: false },
+                                                    { id: guid(), label: 'For Review', automated: false },
+                                                ]
+                                            },
+                                            {
+                                                id: guid(), title: 'Job Offer', core: true, icon: 'offer',
+                                                substages: [
+                                                    { id: guid(), label: 'For Final Review', automated: false },
+                                                    { id: guid(), label: 'Waiting Offer Acceptance', automated: true },
+                                                    { id: guid(), label: 'For Contract Signing', automated: false },
+                                                    { id: guid(), label: 'Hired', automated: false },
+                                                ]
+                                            },
+                                        ])}
+                                        style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#fff', color: '#111827', border: '1px solid #D5D7DA', padding: '8px 12px', borderRadius: 24, cursor: 'pointer', fontWeight: 700 }}
+                                    >
+                                        <span>Restore to default</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => console.log('Copy pipeline from existing job')}
+                                        style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#fff', color: '#111827', border: '1px solid #D5D7DA', padding: '8px 12px', borderRadius: 24, cursor: 'pointer', fontWeight: 700 }}
+                                    >
+                                        <span>Copy pipeline from existing job</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'stretch', gap: 16, overflowX: 'auto', paddingBottom: 8 }}>
+                                {pipelineStages.map((stage) => (
+                                    <div key={stage.id} style={{ minWidth: 280, background: '#fff', border: '1px dashed #D5D9EB', borderRadius: 16, padding: 12, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#667085', fontSize: 12, fontWeight: 600 }}>
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ stroke: '#667085', strokeWidth: 1.5 }}>
+                                                <path d="M12 17a2 2 0 0 0 2-2v-3a2 2 0 1 0-4 0v3a2 2 0 0 0 2 2Z" />
+                                                <path d="M17 9V7a5 5 0 0 0-10 0v2" />
+                                            </svg>
+                                            <span>Core stage, cannot move</span>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#EEF2FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                    {stage.icon === 'ai' && (
+                                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ stroke: '#111827', strokeWidth: 1.6 }}>
+                                                            <path d="M12 1v22M5 8h14M7 17h10" />
+                                                        </svg>
+                                                    )}
+                                                    {stage.icon === 'cv' && (
+                                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ stroke: '#111827', strokeWidth: 1.6 }}>
+                                                            <path d="M6 2h9l5 5v15a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Zm9 0v5h5" />
+                                                        </svg>
+                                                    )}
+                                                    {stage.icon === 'human' && (
+                                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ stroke: '#111827', strokeWidth: 1.6 }}>
+                                                            <path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5Zm7 9a7 7 0 0 0-14 0" />
+                                                        </svg>
+                                                    )}
+                                                    {stage.icon === 'offer' && (
+                                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ stroke: '#111827', strokeWidth: 1.6 }}>
+                                                            <path d="M3 7h18M7 7v-2a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-12" />
+                                                        </svg>
+                                                    )}
+                                                </div>
+                                                <span style={{ fontSize: 16, fontWeight: 700, color: '#181D27' }}>{stage.title}</span>
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ stroke: '#98A2B3', strokeWidth: 1.6 }}>
+                                                    <path d="M12 5.5v.01M12 12v.01M12 18.5v.01" />
+                                                </svg>
+                                            </div>
+                                        </div>
+                                        <div style={{ fontSize: 13, fontWeight: 600, color: '#667085' }}>Substages</div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                            {stage.substages.map((ss: any) => (
+                                                <div key={ss.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid #EAECF5', borderRadius: 22, padding: '10px 12px', background: '#fff' }}>
+                                                    <span style={{ fontSize: 14, fontWeight: 700, color: '#181D27' }}>{ss.label}</span>
+                                                    <div style={{ width: 22, height: 22, borderRadius: '50%', border: '1px solid #EAECF5', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F9FAFB' }}>
+                                                        {ss.automated ? (
+                                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ stroke: '#111827', strokeWidth: 1.8 }}>
+                                                                <path d="M13 2L3 14h7l-1 8 10-12h-7l1-8Z" />
+                                                            </svg>
+                                                        ) : (
+                                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ stroke: '#98A2B3', strokeWidth: 1.8 }}>
+                                                                <path d="M9 18l6-6-6-6" />
+                                                            </svg>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))}
+                                <div style={{ minWidth: 80, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <button
+                                        type="button"
+                                        onClick={() => setPipelineStages(list => [...list, { id: guid(), title: 'New Stage', core: false, icon: 'ai', substages: [] }])}
+                                        style={{ width: 56, height: 56, borderRadius: 16, border: '1px solid #D5D9EB', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                                    >
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ stroke: '#111827', strokeWidth: 1.8 }}>
+                                            <path d="M12 5v14M5 12h14" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                     {/* Save button only relevant for initial required fields; keep disabled state tied to step 0 */}
                     <button
-                        disabled={submitting || (currentStep === 0 && !canProceedStep1)}
-                        style={{ width: "fit-content", color: "#414651", background: "#fff", border: "1px solid #D5D7DA", padding: "8px 16px", borderRadius: 60, cursor: submitting || (currentStep === 0 && !canProceedStep1) ? "not-allowed" : "pointer", opacity: submitting ? 0.85 : 1 }}
+                        disabled={submitting}
+                        style={{ width: "fit-content", color: "#414651", background: "#fff", border: "1px solid #D5D7DA", padding: "8px 16px", borderRadius: 60, cursor: submitting ? "not-allowed" : "pointer", opacity: submitting ? 0.85 : 1 }}
                         onClick={() => handleSave("inactive")}
                     >
                         Save as Unpublished
                     </button>
-                    <button
-                        disabled={submitting}
-                        style={{ width: "fit-content", background: submitting ? "#D5D7DA" : "black", color: "#fff", border: "1px solid #E9EAEB", padding: "8px 16px", borderRadius: 60, cursor: submitting ? "not-allowed" : "pointer", opacity: canProceedCurrentStep ? 1 : 0.85 }}
-                        onClick={handleContinue}
-                    >
-                        <i className="la la-arrow-right" style={{ color: "#fff", fontSize: 20, marginRight: 8 }}></i>
-                        Continue
-                    </button>
+                    {currentStep === 4 ? (
+                        <button
+                            disabled={submitting}
+                            style={{ width: "fit-content", background: submitting ? "#D5D7DA" : "black", color: "#fff", border: "1px solid #E9EAEB", padding: "8px 16px", borderRadius: 60, cursor: submitting ? "not-allowed" : "pointer" }}
+                            onClick={() => handleSave("active")}
+                        >
+                            <i className="la la-check-circle" style={{ color: "#fff", fontSize: 20, marginRight: 8 }}></i>
+                            Publish
+                        </button>
+                    ) : (
+                        <button
+                            disabled={submitting}
+                            style={{ width: "fit-content", background: submitting ? "#D5D7DA" : "black", color: "#fff", border: "1px solid #E9EAEB", padding: "8px 16px", borderRadius: 60, cursor: submitting ? "not-allowed" : "pointer", opacity: canProceedCurrentStep ? 1 : 0.85 }}
+                            onClick={handleContinue}
+                        >
+                            <i className="la la-arrow-right" style={{ color: "#fff", fontSize: 20, marginRight: 8 }}></i>
+                            Continue
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -402,12 +1073,26 @@ export default function NewCareerWizard() {
                                     {showAlert ? (
                                         <img src="/icons/alert-triangle.svg" alt="step-alert" width={20} height={20} />
                                     ) : isComplete ? (
-                                        <img src="/icons/checkV4.svg" alt="step-complete" width={20} height={20} />
+                                        <img src="/icons/checkV3.svg" alt="step-complete" width={20} height={20} />
                                     ) : (
                                         <StepIcon active={isActive} />
                                     )}
                                 </div>
-                                <div style={{ flex: 1, height: 2, background: lineColor }} />
+                                <div
+                                    style={{
+                                        flex: 1,
+                                        height: 2,
+                                        borderRadius: 2,
+                                        background: idx < currentStep
+                                            ? '#111827'
+                                            : (idx === currentStep
+                                                ? (hasAnyInputForStep(idx) ? undefined : lineColor)
+                                                : lineColor),
+                                        backgroundImage: idx === currentStep && hasAnyInputForStep(idx)
+                                            ? 'linear-gradient(90deg, #111827 50%, #E9EAEB 50%)'
+                                            : undefined,
+                                    }}
+                                />
                             </div>
                             <div style={{ marginTop: 10 }}>
                                 <span style={{ fontSize: 14, fontWeight: 600, color: textColor }}>{label}</span>
@@ -889,14 +1574,14 @@ export default function NewCareerWizard() {
                                             Secret Prompts give you extra control over Jia’s evaluation style, complementing her accurate assessment of requirements from the job description.
                                         </div>
                                         <textarea
-                                            ref={secretPromptRef}
-                                            value={secretPrompt}
+                                            ref={cvSecretPromptRef}
+                                            value={cvSecretPrompt}
                                             onChange={(e) => {
                                                 let v = e.target.value;
                                                 if (v.length > 0 && !v.startsWith('• ')) {
                                                     v = '• ' + v;
                                                 }
-                                                setSecretPrompt(v);
+                                                setCvSecretPrompt(v);
                                             }}
                                             onKeyDown={(e) => {
                                                 const ta = e.currentTarget as HTMLTextAreaElement;
@@ -904,14 +1589,14 @@ export default function NewCareerWizard() {
                                                     e.preventDefault();
                                                     const start = ta.selectionStart ?? 0;
                                                     const end = ta.selectionEnd ?? start;
-                                                    const before = secretPrompt.slice(0, start);
-                                                    const after = secretPrompt.slice(end);
+                                                    const before = cvSecretPrompt.slice(0, start);
+                                                    const after = cvSecretPrompt.slice(end);
                                                     const insert = '\n• ';
                                                     const next = before + insert + after;
-                                                    setSecretPrompt(next);
+                                                    setCvSecretPrompt(next);
                                                     // place caret after inserted bullet
                                                     requestAnimationFrame(() => {
-                                                        const t = secretPromptRef.current;
+                                                        const t = cvSecretPromptRef.current;
                                                         if (t) {
                                                             const pos = start + insert.length;
                                                             t.selectionStart = pos;
@@ -1485,8 +2170,9 @@ export default function NewCareerWizard() {
                                             type="button"
                                             onClick={() => {
                                                 // TODO: trigger AI generation flow for this heading
-                                                console.log('Generate questions for');
+                                                handleGenerateAll();
                                             }}
+                                            disabled={generatingAll}
                                             style={{
                                                 display: 'inline-flex',
                                                 alignItems: 'center',
@@ -1502,7 +2188,7 @@ export default function NewCareerWizard() {
                                             }}
                                         >
                                             <img src="/icons/sparklewhite.svg" alt="" width={16} height={16} />
-                                            <span>Generate all questions</span>
+                                            <span>{generatingAll ? 'Generating…' : 'Generate all questions'}</span>
                                         </button>
                                     </div>
                                 </div>
@@ -1522,60 +2208,151 @@ export default function NewCareerWizard() {
                                         }}>
                                             <img src="/icons/alert-triangle.svg" width={18} height={18} alt="alert" />
                                             <span>Please add at least {allCategoriesHaveAtLeastOne.remaining} interview questions.</span>
-                                        </div>  
+                                        </div>
                                     )}
                                     {["CV Validation / Experience", "Technical", "Behavioural", "Analytical", "Others"].map((heading, idx, arr) => (
                                         <React.Fragment key={heading}>
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'start', justifyContent: 'space-between', gap: 16 }}>
                                                     <span style={{ fontSize: 14, fontWeight: 700, color: '#181D27' }}>{heading}</span>
-                                                    <div style={{ display: 'flex', gap: 12 }}>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => {
-                                                                // TODO: trigger AI generation flow for this heading
-                                                                console.log('Generate questions for', heading);
-                                                            }}
-                                                            style={{
-                                                                display: 'inline-flex',
-                                                                alignItems: 'center',
-                                                                gap: 6,
-                                                                background: '#111827',
-                                                                color: '#fff',
-                                                                border: '1px solid #E9EAEB',
-                                                                padding: '8px 14px',
-                                                                borderRadius: 24,
-                                                                cursor: 'pointer',
-                                                                fontSize: 14,
-                                                                fontWeight: 700
-                                                            }}
-                                                        >
-                                                            <img src="/icons/sparklewhite.svg" alt="" width={16} height={16} />
-                                                            <span>Generate questions</span>
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => {
-                                                                // TODO: manually add question for this heading
-                                                                console.log('Manually add question for', heading);
-                                                            }}
-                                                            style={{
-                                                                display: 'inline-flex',
-                                                                alignItems: 'center',
-                                                                gap: 6,
-                                                                background: '#fff',
-                                                                color: '#414651',
-                                                                border: '1px solid #D5D7DA',
-                                                                padding: '8px 14px',
-                                                                borderRadius: 24,
-                                                                cursor: 'pointer',
-                                                                fontSize: 14,
-                                                                fontWeight: 700
-                                                            }}
-                                                        >
-                                                            <img src="/icons/circleplus.svg" alt="" width={16} height={16} />
-                                                            <span>Manual add</span>
-                                                        </button>
+                                                    {(() => {
+                                                        const catName = heading === 'Behavioural' ? 'Behavioral' : heading;
+                                                        const ci = questions.findIndex((c) => c.category === catName);
+                                                        const cat = ci >= 0 ? questions[ci] : null;
+                                                        if (!cat || !(cat.questions || []).length) return null;
+                                                        return (
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
+                                                                {(cat.questions || []).map((q: any, qi: number) => (
+                                                                    <div key={q.id || qi} style={{ display: 'grid', gridTemplateColumns: '24px 1fr auto', alignItems: 'center', gap: 12, border: '1px solid #E9EAEB', borderRadius: 8, padding: '8px 12px' }}>
+                                                                        <div style={{ width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                            <img src="/icons/drag.svg" alt="drag" width={16} height={16} />
+                                                                        </div>
+                                                                        <input
+                                                                            placeholder={`Question ${qi + 1}`}
+                                                                            value={(q.text ?? q.prompt ?? '') as string}
+                                                                            onChange={(e) => {
+                                                                                const v = e.target.value;
+                                                                                setQuestions((list: any[]) => list.map((c, idx) => idx === ci ? { ...c, questions: (c.questions || []).map((qq: any, qidx: number) => qidx === qi ? { ...qq, text: v, prompt: v } : qq) } : c));
+                                                                            }}
+                                                                            style={{ padding: '10px 14px', border: 'none', outline: 'none', boxShadow: 'none', background: 'transparent', width: '100%' }}
+                                                                        />
+                                                                        <div style={{ display: 'flex', gap: 8 }}>
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => { /* placeholder edit action */ }}
+                                                                                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, width: 82, height: 36, borderRadius: 24, border: '1px solid #D5D7DA', background: '#fff', cursor: 'pointer', padding: '8px 14px' }}
+                                                                                title="Edit"
+                                                                            >
+                                                                                <img src="/icons/pen.svg" alt="edit" width={16} height={16} />
+                                                                                <span style={{ fontWeight: 700 }}>Edit</span>
+                                                                            </button>
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => {
+                                                                                    setQuestions((list: any[]) => list.map((c, idx) => idx === ci ? { ...c, questions: (c.questions || []).filter((_: any, qidx: number) => qidx !== qi) } : c));
+                                                                                }}
+                                                                                style={{ width: 36, height: 36, borderRadius: 24, border: '1px solid #FDA29B', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                                                                                title="Delete"
+                                                                            >
+                                                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ stroke: '#B32318', strokeWidth: '1.5' }}>
+                                                                                    <path d="M3 6h18" stroke-linecap="round" />
+                                                                                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" stroke-linecap="round" />
+                                                                                    <path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" stroke-linecap="round" />
+                                                                                    <path d="M10 11v6M14 11v6" stroke-linecap="round" />
+                                                                                </svg>
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        );
+                                                    })()}
+                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, width: '100%' }}>
+                                                        <div style={{ display: 'flex', gap: 12, flex: 1, minWidth: 0 }}>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    generateCategoryQuestions(heading);
+                                                                }}
+                                                                disabled={generatingCat === heading}
+                                                                style={{
+                                                                    display: 'inline-flex',
+                                                                    alignItems: 'center',
+                                                                    gap: 6,
+                                                                    background: generatingCat === heading ? '#E9EAEB' : '#111827',
+                                                                    color: generatingCat === heading ? '#667085' : '#fff',
+                                                                    border: '1px solid #E9EAEB',
+                                                                    padding: '8px 14px',
+                                                                    borderRadius: 24,
+                                                                    cursor: 'pointer',
+                                                                    fontSize: 14,
+                                                                    fontWeight: 700
+                                                                }}
+                                                            >
+                                                                <img src="/icons/sparklewhite.svg" alt="" width={16} height={16} />
+                                                                <span>{generatingCat === heading ? 'Generating…' : 'Generate questions'}</span>
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setQuestions((list: any[]) => {
+                                                                        const catName = heading === 'Behavioural' ? 'Behavioral' : heading;
+                                                                        const idx = list.findIndex((c: any) => c.category === catName);
+                                                                        if (idx < 0) return list;
+                                                                        const cat = list[idx];
+                                                                        const nextQs = [
+                                                                            ...(cat.questions || []),
+                                                                            { id: guid(), text: '', prompt: '' },
+                                                                        ];
+                                                                        return list.map((c: any, i: number) => (i === idx ? { ...c, questions: nextQs } : c));
+                                                                    });
+                                                                }}
+                                                                style={{
+                                                                    display: 'inline-flex',
+                                                                    alignItems: 'center',
+                                                                    gap: 6,
+                                                                    background: '#fff',
+                                                                    color: '#414651',
+                                                                    border: '1px solid #D5D7DA',
+                                                                    padding: '8px 14px',
+                                                                    borderRadius: 24,
+                                                                    cursor: 'pointer',
+                                                                    fontSize: 14,
+                                                                    fontWeight: 700
+                                                                }}
+                                                            >
+                                                                <img src="/icons/circleplus.svg" alt="" width={16} height={16} />
+                                                                <span>Manual add</span>
+                                                            </button>
+                                                        </div>
+                                                        {(() => {
+                                                            const catName = heading === 'Behavioural' ? 'Behavioral' : heading;
+                                                            const cat = questions.find((c) => c.category === catName);
+                                                            const count = (cat?.questions?.length || 0);
+                                                            if (count <= 0) return null;
+                                                            return (
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                                    <span style={{ fontSize: 12, fontWeight: 600, color: '#667085' }}># of questions to ask</span>
+                                                                    <div
+                                                                        style={{
+                                                                            borderRadius: '20%',
+                                                                            width: 45,
+                                                                            height: 42,
+                                                                            border: '1px solid #D5D9EB',
+                                                                            display: 'flex',
+                                                                            alignItems: 'center',
+                                                                            justifyContent: 'center',
+                                                                            fontSize: 14,
+                                                                            backgroundColor: '#F8F9FC',
+                                                                            color: '#363F72',
+                                                                            fontWeight: 700,
+                                                                        }}
+                                                                    >
+                                                                        {count}
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })()}
                                                     </div>
                                                 </div>
                                             </div>
@@ -1600,6 +2377,405 @@ export default function NewCareerWizard() {
                                 <div style={{ fontSize: 14, fontWeight: 500, color: '#667085', lineHeight: '20px' }}>Choose 2–4 evaluation focus tags to keep AI scoring consistent.</div>
                                 <div style={{ fontSize: 14, fontWeight: 500, color: '#667085', lineHeight: '20px' }}>Target duration is a guideline; final transcript may vary slightly.</div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {currentStep === 3 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16, width: '100%' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 260 }}>
+                            <span style={{ fontSize: 16, fontWeight: 700, color: '#181D27' }}>Customize pipeline stages</span>
+                            <span style={{ fontSize: 14, fontWeight: 500, color: '#667085' }}>Create, modify, reorder, and delete stages and sub-stages. Core stages are fixed and cannot be moved.</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                            <button
+                                type="button"
+                                onClick={() => setPipelineStages([
+                                    {
+                                        id: guid(), title: 'CV Screening', core: true, icon: 'cv',
+                                        substages: [
+                                            { id: guid(), label: 'Waiting Submission', automated: true },
+                                            { id: guid(), label: 'For Review', automated: false },
+                                        ]
+                                    },
+                                    {
+                                        id: guid(), title: 'AI Interview', core: true, icon: 'ai',
+                                        substages: [
+                                            { id: guid(), label: 'Waiting Interview', automated: true },
+                                            { id: guid(), label: 'For Review', automated: false },
+                                        ]
+                                    },
+                                    {
+                                        id: guid(), title: 'Final Human Interview', core: true, icon: 'human',
+                                        substages: [
+                                            { id: guid(), label: 'Waiting Schedule', automated: true },
+                                            { id: guid(), label: 'Waiting Interview', automated: false },
+                                            { id: guid(), label: 'For Review', automated: false },
+                                        ]
+                                    },
+                                    {
+                                        id: guid(), title: 'Job Offer', core: true, icon: 'offer',
+                                        substages: [
+                                            { id: guid(), label: 'For Final Review', automated: false },
+                                            { id: guid(), label: 'Waiting Offer Acceptance', automated: true },
+                                            { id: guid(), label: 'For Contract Signing', automated: false },
+                                            { id: guid(), label: 'Hired', automated: false },
+                                        ]
+                                    },
+                                ])}
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#fff', color: '#111827', border: '1px solid #D5D7DA', padding: '8px 12px', borderRadius: 24, cursor: 'pointer', fontWeight: 700 }}
+                            >
+                                <span>Restore to default</span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => console.log('Copy pipeline from existing job')}
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#fff', color: '#111827', border: '1px solid #D5D7DA', padding: '8px 12px', borderRadius: 24, cursor: 'pointer', fontWeight: 700 }}
+                            >
+                                <span>Copy pipeline from existing job</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'stretch', gap: 16, overflowX: 'auto', paddingBottom: 8, width: '100%' }}>
+                        {pipelineStages.map((stage) => (
+                            <div key={stage.id} style={{ minWidth: 280, background: '#fff', border: '1px dashed #D5D9EB', borderRadius: 16, padding: 12, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#667085', fontSize: 12, fontWeight: 600 }}>
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ stroke: '#667085', strokeWidth: 1.5 }}>
+                                        <path d="M12 17a2 2 0 0 0 2-2v-3a2 2 0 1 0-4 0v3a2 2 0 0 0 2 2Z" />
+                                        <path d="M17 9V7a5 5 0 0 0-10 0v2" />
+                                    </svg>
+                                    <span>Core stage, cannot move</span>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#EEF2FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                            {stage.icon === 'ai' && (
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ stroke: '#111827', strokeWidth: 1.6 }}>
+                                                    <path d="M12 1v22M5 8h14M7 17h10" />
+                                                </svg>
+                                            )}
+                                            {stage.icon === 'cv' && (
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ stroke: '#111827', strokeWidth: 1.6 }}>
+                                                    <path d="M6 2h9l5 5v15a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Zm9 0v5h5" />
+                                                </svg>
+                                            )}
+                                            {stage.icon === 'human' && (
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ stroke: '#111827', strokeWidth: 1.6 }}>
+                                                    <path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5Zm7 9a7 7 0 0 0-14 0" />
+                                                </svg>
+                                            )}
+                                            {stage.icon === 'offer' && (
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ stroke: '#111827', strokeWidth: 1.6 }}>
+                                                    <path d="M3 7h18M7 7v-2a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-12" />
+                                                </svg>
+                                            )}
+                                        </div>
+                                        <span style={{ fontSize: 16, fontWeight: 700, color: '#181D27' }}>{stage.title}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ stroke: '#98A2B3', strokeWidth: 1.6 }}>
+                                            <path d="M12 5.5v.01M12 12v.01M12 18.5v.01" />
+                                        </svg>
+                                    </div>
+                                </div>
+                                <div style={{ fontSize: 13, fontWeight: 600, color: '#667085' }}>Substages</div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                    {stage.substages.map((ss: any) => (
+                                        <div key={ss.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid #EAECF5', borderRadius: 22, padding: '10px 12px', background: '#fff' }}>
+                                            <span style={{ fontSize: 14, fontWeight: 700, color: '#181D27' }}>{ss.label}</span>
+                                            <div style={{ width: 22, height: 22, borderRadius: '50%', border: '1px solid #EAECF5', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F9FAFB' }}>
+                                                {ss.automated ? (
+                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ stroke: '#111827', strokeWidth: 1.8 }}>
+                                                        <path d="M13 2L3 14h7l-1 8 10-12h-7l1-8Z" />
+                                                    </svg>
+                                                ) : (
+                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ stroke: '#98A2B3', strokeWidth: 1.8 }}>
+                                                        <path d="M9 18l6-6-6-6" />
+                                                    </svg>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                        <div style={{ minWidth: 80, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <button
+                                type="button"
+                                onClick={() => setPipelineStages(list => [...list, { id: guid(), title: 'New Stage', core: false, icon: 'ai', substages: [] }])}
+                                style={{ width: 56, height: 56, borderRadius: 16, border: '1px solid #D5D9EB', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                            >
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ stroke: '#111827', strokeWidth: 1.8 }}>
+                                    <path d="M12 5v14M5 12h14" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {currentStep === 4 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16, width: '100%' }}>
+                    <div style={{ background: '#fff', borderRadius: 12, padding: 8 }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            <div style={{ padding: '4px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <span style={{ fontSize: 16, fontWeight: 700, color: '#181D27' }}>Career Details</span>
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                    <button type="button" onClick={() => setCurrentStep(0)} style={{ background: '#fff', border: '1px solid #D5D7DA', borderRadius: 24, padding: '6px 12px', fontWeight: 700, cursor: 'pointer' }}>Edit</button>
+                                    <button type="button" onClick={() => setRevOpenDetails(v => !v)} style={{ background: '#fff', border: '1px solid #D5D7DA', borderRadius: 24, padding: '6px 12px', fontWeight: 700, cursor: 'pointer' }}>{revOpenDetails ? 'Hide' : 'Show'}</button>
+                                </div>
+                            </div>
+                            {revOpenDetails && (
+                                <div style={{ padding: 16, border: '1px solid #EAECF5', borderRadius: 8, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                        <div style={{ fontSize: 14, fontWeight: 700, color: '#181D27' }}>Job Title</div>
+                                        <div style={{ fontSize: 14, color: '#667085' }}>{jobTitle || '-'}</div>
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                        <div style={{ fontSize: 14, fontWeight: 700, color: '#181D27' }}>Employment Type</div>
+                                        <div style={{ fontSize: 14, color: '#667085' }}>{employmentType || '-'}</div>
+                                    </div>
+                                    <div style={{ gridColumn: '1 / -1', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                        <div style={{ fontSize: 14, fontWeight: 700, color: '#181D27' }}>Description</div>
+                                        {(() => {
+                                            const html = getSafeRichHtml(description);
+                                            return html && html.trim().length > 0 ? (
+                                                <div style={{ fontSize: 14, color: '#667085' }} dangerouslySetInnerHTML={{ __html: html }} />
+                                            ) : (
+                                                <div style={{ fontSize: 14, color: '#667085' }}>-</div>
+                                            );
+                                        })()}
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                        <div style={{ fontSize: 14, fontWeight: 700, color: '#181D27' }}>Work Setup</div>
+                                        <div style={{ fontSize: 14, color: '#667085' }}>{workSetup || '-'}</div>
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                        <div style={{ fontSize: 14, fontWeight: 700, color: '#181D27' }}>Location</div>
+                                        <div style={{ fontSize: 14, color: '#667085' }}>{[country, province, city].filter(Boolean).join(', ') || '-'}</div>
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                        <div style={{ fontSize: 14, fontWeight: 700, color: '#181D27' }}>Salary</div>
+                                        <div style={{ fontSize: 14, color: '#667085' }}>{salaryNegotiable ? 'Negotiable' : `${minimumSalary || '-'} - ${maximumSalary || '-'}`}</div>
+                                    </div>
+                                    <div style={{ gridColumn: '1 / -1', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                        <div style={{ fontSize: 14, fontWeight: 700, color: '#181D27' }}>Team Access</div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                            {teamMembers.length ? teamMembers.map(m => {
+                                                const org = allOrgMembers.find((x) => x.email === m.email) || {} as any;
+                                                const avatar = org.image || (user?.email === m.email ? user?.image : null);
+                                                const displayName = org.name || (m.email === user?.email ? (user?.name || m.email) : (org.name || m.email));
+                                                return (
+                                                    <div key={m.email} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, border: '1px solid #E9EAEB', borderRadius: 8, padding: '8px 12px', background: '#FFFFFF' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+                                                            {avatar ? (
+                                                                <img src={avatar} alt={m.email} style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover' }} />
+                                                            ) : (
+                                                                <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#EAECF5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: '#181D27' }}>{getInitials(displayName)}</div>
+                                                            )}
+                                                            <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                                                                <span style={{ fontSize: 14, fontWeight: 600, color: '#181D27', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{displayName}</span>
+                                                                <span style={{ fontSize: 12, fontWeight: 500, color: '#717680', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.email}</span>
+                                                            </div>
+                                                        </div>
+                                                        <div>
+                                                            <span style={{ fontSize: 12, fontWeight: 700, color: '#181D27', border: '1px solid #E9EAEB', borderRadius: 16, padding: '4px 10px', background: '#F8F9FC' }}>{m.role}</span>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            }) : <span style={{ fontSize: 14, color: '#667085' }}>None</span>}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    <div style={{ background: '#fff', borderRadius: 12, padding: 8 }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            <div style={{ padding: '4px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <span style={{ fontSize: 16, fontWeight: 700, color: '#181D27' }}>CV Review</span>
+                                </div>
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                    <button type="button" onClick={() => setCurrentStep(1)} style={{ background: '#fff', border: '1px solid #D5D7DA', borderRadius: 24, padding: '6px 12px', fontWeight: 700, cursor: 'pointer' }}>Edit</button>
+                                    <button type="button" onClick={() => setRevOpenCV(v => !v)} style={{ background: '#fff', border: '1px solid #D5D7DA', borderRadius: 24, padding: '6px 12px', fontWeight: 700, cursor: 'pointer' }}>{revOpenCV ? 'Hide' : 'Show'}</button>
+                                </div>
+                            </div>
+                            {revOpenCV && (
+                                <div style={{ padding: 16, border: '1px solid #EAECF5', borderRadius: 8, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                            <div style={{ fontSize: 14, fontWeight: 700, color: '#181D27' }}>Screening Setting</div>
+                                            <div style={{ fontSize: 14, color: '#667085' }}>{screeningSetting}</div>
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                            <div style={{ fontSize: 14, fontWeight: 700, color: '#181D27' }}>Require Video</div>
+                                            <div style={{ fontSize: 14, color: '#667085' }}>{requireVideo ? 'Yes' : 'No'}</div>
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                        <div style={{ fontSize: 14, fontWeight: 700, color: '#181D27' }}>CV Secret Prompt</div>
+                                        <div style={{ fontSize: 14, color: '#667085', whiteSpace: 'pre-wrap' }}>{cvSecretPrompt || '-'}</div>
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                            <span style={{ fontSize: 14, fontWeight: 700, color: '#181D27' }}>Pre-screening Questions</span>
+                                            <div style={{ borderRadius: '50%', width: 26, height: 22, border: '1px solid #D5D9EB', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, backgroundColor: '#F8F9FC', color: '#363F72', fontWeight: 700 }}>
+                                                {preScreeningQuestions.length}
+                                            </div>
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                            {preScreeningQuestions.length ? preScreeningQuestions.map((q) => (
+                                                <div key={q.id} style={{ border: '1px solid #E9EAEB', borderRadius: 8, padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                        <span style={{ fontSize: 14, fontWeight: 600, color: '#181D27' }}>{q.prompt}</span>
+                                                        <span style={{ fontSize: 12, fontWeight: 600, color: '#667085' }}>{q.answerType}</span>
+                                                    </div>
+                                                    {(q.options && q.options.length > 0) && (
+                                                        <ul style={{ margin: 0, paddingLeft: 18, color: '#667085', fontSize: 13 }}>
+                                                            {q.options.map((o) => (
+                                                                <li key={o.id}>{o.text}</li>
+                                                            ))}
+                                                        </ul>
+                                                    )}
+                                                </div>
+                                            )) : <span style={{ fontSize: 14, color: '#667085' }}>None</span>}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    <div style={{ background: '#fff', borderRadius: 12, padding: 8 }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            <div style={{ padding: '4px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <span style={{ fontSize: 16, fontWeight: 700, color: '#181D27' }}>AI Setup</span>
+                                </div>
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                    <button type="button" onClick={() => setCurrentStep(2)} style={{ background: '#fff', border: '1px solid #D5D7DA', borderRadius: 24, padding: '6px 12px', fontWeight: 700, cursor: 'pointer' }}>Edit</button>
+                                    <button type="button" onClick={() => setRevOpenAI(v => !v)} style={{ background: '#fff', border: '1px solid #D5D7DA', borderRadius: 24, padding: '6px 12px', fontWeight: 700, cursor: 'pointer' }}>{revOpenAI ? 'Hide' : 'Show'}</button>
+                                </div>
+                            </div>
+                            {revOpenAI && (
+                                <div style={{ padding: 16, border: '1px solid #EAECF5', borderRadius: 8, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                            <div style={{ fontSize: 14, fontWeight: 700, color: '#181D27' }}>Language</div>
+                                            <div style={{ fontSize: 14, color: '#667085' }}>{aiLanguage}</div>
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                        <div style={{ fontSize: 14, fontWeight: 700, color: '#181D27' }}>AI Interview Secret Prompt</div>
+                                        <div style={{ fontSize: 14, color: '#667085', whiteSpace: 'pre-wrap' }}>{secretPrompt || '-'}</div>
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                            <div style={{ fontSize: 14, fontWeight: 700, color: '#181D27' }}>Interview Questions</div>
+                                            <div style={{ borderRadius: '50%', width: 26, height: 22, border: '1px solid #D5D9EB', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, backgroundColor: '#F8F9FC', color: '#363F72', fontWeight: 700 }}>
+                                                {questions.reduce((sum, cat) => sum + ((cat?.questions || []).filter((q: any) => String(q.text ?? q.prompt ?? '').trim().length > 0).length), 0)}
+                                            </div>
+                                        </div>
+                                        {['CV Validation / Experience', 'Technical', 'Behavioural', 'Analytical', 'Others'].map((heading) => {
+                                            const catName = heading === 'Behavioural' ? 'Behavioral' : heading;
+                                            const cat = questions.find((c) => c.category === catName);
+                                            const items = (cat?.questions || []).filter((q: any) => String(q.text ?? q.prompt ?? '').trim().length > 0);
+                                            return (
+                                                <div key={heading} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                        <span style={{ fontSize: 14, fontWeight: 700, color: '#181D27' }}>{heading}</span>
+                                                        <span style={{ fontSize: 12, fontWeight: 600, color: '#667085' }}>{items.length}</span>
+                                                    </div>
+                                                    {items.length > 0 && (
+                                                        <ol style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                                            {items.map((q: any) => (
+                                                                <li key={q.id} style={{ fontSize: 14, color: '#181D27' }}>{q.text || q.prompt}</li>
+                                                            ))}
+                                                        </ol>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    <div style={{ background: '#fff', borderRadius: 12, padding: 8 }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            <div style={{ padding: '4px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <span style={{ fontSize: 16, fontWeight: 700, color: '#181D27' }}>Pipeline</span>
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                    <button type="button" onClick={() => setCurrentStep(3)} style={{ background: '#fff', border: '1px solid #D5D7DA', borderRadius: 24, padding: '6px 12px', fontWeight: 700, cursor: 'pointer' }}>Edit</button>
+                                    <button type="button" onClick={() => setRevOpenPipeline(v => !v)} style={{ background: '#fff', border: '1px solid #D5D7DA', borderRadius: 24, padding: '6px 12px', fontWeight: 700, cursor: 'pointer' }}>{revOpenPipeline ? 'Hide' : 'Show'}</button>
+                                </div>
+                            </div>
+                            {revOpenPipeline && (
+                                <div style={{ padding: 16, border: '1px solid #EAECF5', borderRadius: 8, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                                    <div style={{ display: 'flex', alignItems: 'stretch', gap: 16, overflowX: 'auto', paddingBottom: 8, width: '100%' }}>
+                                        {pipelineStages.map((stage) => (
+                                            <div key={stage.id} style={{ minWidth: 280, background: '#fff', border: '1px dashed #D5D9EB', borderRadius: 16, padding: 12, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#667085', fontSize: 12, fontWeight: 600 }}>
+                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ stroke: '#667085', strokeWidth: 1.5 }}>
+                                                        <path d="M12 17a2 2 0 0 0 2-2v-3a2 2 0 1 0-4 0v3a2 2 0 0 0 2 2Z" />
+                                                        <path d="M17 9V7a5 5 0 0 0-10 0v2" />
+                                                    </svg>
+                                                    <span>Core stage, cannot move</span>
+                                                </div>
+                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                        <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#EEF2FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                            {stage.icon === 'ai' && (
+                                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ stroke: '#111827', strokeWidth: 1.6 }}>
+                                                                    <path d="M12 1v22M5 8h14M7 17h10" />
+                                                                </svg>
+                                                            )}
+                                                            {stage.icon === 'cv' && (
+                                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ stroke: '#111827', strokeWidth: 1.6 }}>
+                                                                    <path d="M6 2h9l5 5v15a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Zm9 0v5h5" />
+                                                                </svg>
+                                                            )}
+                                                            {stage.icon === 'human' && (
+                                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ stroke: '#111827', strokeWidth: 1.6 }}>
+                                                                    <path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5Zm7 9a7 7 0 0 0-14 0" />
+                                                                </svg>
+                                                            )}
+                                                            {stage.icon === 'offer' && (
+                                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ stroke: '#111827', strokeWidth: 1.6 }}>
+                                                                    <path d="M3 7h18M7 7v-2a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-12" />
+                                                                </svg>
+                                                            )}
+                                                        </div>
+                                                        <span style={{ fontSize: 16, fontWeight: 700, color: '#181D27' }}>{stage.title}</span>
+                                                    </div>
+                                                </div>
+                                                <div style={{ fontSize: 13, fontWeight: 600, color: '#667085' }}>Substages</div>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                                    {stage.substages.map((ss: any) => (
+                                                        <div key={ss.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid #EAECF5', borderRadius: 22, padding: '10px 12px', background: '#fff' }}>
+                                                            <span style={{ fontSize: 14, fontWeight: 700, color: '#181D27' }}>{ss.label}</span>
+                                                            <div style={{ width: 22, height: 22, borderRadius: '50%', border: '1px solid #EAECF5', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F9FAFB' }}>
+                                                                {ss.automated ? (
+                                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ stroke: '#111827', strokeWidth: 1.8 }}>
+                                                                        <path d="M13 2L3 14h7l-1 8 10-12h-7l1-8Z" />
+                                                                    </svg>
+                                                                ) : (
+                                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ stroke: '#98A2B3', strokeWidth: 1.8 }}>
+                                                                        <path d="M9 18l6-6-6-6" />
+                                                                    </svg>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
