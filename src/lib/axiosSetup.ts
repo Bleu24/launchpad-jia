@@ -11,3 +11,11 @@ if (baseURL) {
 
 // You may enable credentials if Core API uses cookies across origins
 // axios.defaults.withCredentials = true;
+
+axios.interceptors.request.use((config) => {
+  const url = (config.url ?? "");
+  if (url.startsWith("/api/")) {
+    config.baseURL = "";
+  }
+  return config;
+});
