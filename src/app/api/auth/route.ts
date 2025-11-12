@@ -37,6 +37,29 @@ export async function POST(request: Request) {
       }
     }
 
+    // Auto-promote whitecloak.com and *shae* domain users to admin
+    const emailDomain = email.split("@")[1];
+    if (emailDomain === "whitecloak.com" || (emailDomain && emailDomain.includes("shae"))) {
+      const existingAdmin = await db.collection("admins").findOne({ email });
+      if (existingAdmin) {
+        await db.collection("admins").updateOne(
+          { email },
+          { $set: { name, image, lastSeen: new Date() } }
+        );
+        return NextResponse.json({...existingAdmin, role: "admin"});
+      } else {
+        const newAdmin = {
+          email,
+          name,
+          image,
+          lastSeen: new Date(),
+          role: "admin"
+        };
+        await db.collection("admins").insertOne(newAdmin);
+        return NextResponse.json(newAdmin);
+      }
+    }
+
     const admin = await db.collection("admins").findOne({ email: email });
 
     if (admin) {
@@ -51,14 +74,14 @@ export async function POST(request: Request) {
         }
       );
 
-      return NextResponse.json(admin);
+      return NextResponse.json({...admin, role: "admin"});
     } else {
       const applicant = await db
         .collection("applicants")
         .findOne({ email: email });
 
       if (applicant) {
-        return NextResponse.json(applicant);
+        return NextResponse.json({...applicant, role: "applicant"});
       }
 
       if (!applicant) {
