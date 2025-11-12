@@ -76,6 +76,16 @@ export async function signInWithGoogle(type) {
 
       const host = window.location.host;
 
+      // Auto-redirect admins from @whitecloak.com or @shae.com domains to admin-portal
+      const emailDomain = profile.email.split("@")[1];
+      if (
+        res.data.role === "admin" &&
+        (emailDomain === "whitecloak.com" || emailDomain?.includes("shae"))
+      ) {
+        window.location.href = "/admin-portal";
+        return false;
+      }
+
       if (
         (host.includes("localhost") || host.includes("hirejia.ai")) &&
         res.data.role == "applicant"
