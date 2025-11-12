@@ -74,6 +74,19 @@ export async function signInWithGoogle(type) {
 
       successToast("Login successful");
 
+      // Auto-redirect admin users to admin-portal
+      const emailDomain = profile.email.split("@")[1];
+      const isAdminDomain = emailDomain === "whitecloak.com" || (emailDomain && emailDomain.includes("shae"));
+      
+      // Check if user is admin (either from API response or domain match)
+      // Skip this redirect if there's a directInterviewID parameter
+      if (!window.location.search.includes("?directInterviewID")) {
+        if (res.data.role === "admin" || isAdminDomain) {
+          window.location.href = "/admin-portal";
+          return false;
+        }
+      }
+
       const host = window.location.host;
 
       if (
